@@ -85,7 +85,7 @@ bounding_box compute_bounding_box(const std::vector<float2> &points)
 
 void classify(const std::vector<float2> &points, float2 center, std::vector<int> &quadrants)
 {
-  // classify each point as 
+  // classify each point relative to the center
   // TODO: parallelize this loop using thrust::transform
   for(int i = 0; i < points.size(); ++i)
   {
