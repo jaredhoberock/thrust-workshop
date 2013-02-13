@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <iostream>
 
+// an axis-aligned 2D bounding_box is a lower left corner and an upper right corner
 // TODO: annotate bounding_box's member functions with __host__ __device__
 // so that it is able to work with Thrust
 struct bounding_box
@@ -9,9 +10,9 @@ struct bounding_box
   float2 lower_left;
   float2 upper_right;
 
+  // construct an empty box
   bounding_box()
   {
-    // initialize an empty box
     lower_left  = make_float2( 1e12f,  1e12f);
     upper_right = make_float2(-1e12f, -1e12f);
   }
@@ -52,7 +53,7 @@ struct bounding_box
 void generate_random_points(std::vector<float2> &points)
 {
   // sequentially generate some random 2D points in the unit square
-  // TODO: parallelize this loop using thrust::tabulate
+  // TODO: parallelize this loop using thrust::tabulate and thrust::default_random_engine
   for(int i = 0; i < points.size(); ++i)
   {
     float x = float(rand()) / RAND_MAX;
@@ -102,7 +103,7 @@ void classify(const std::vector<float2> &points, float2 center, std::vector<int>
 }
 
 
-void count_points_in_quadrants(std::vector<float2> &points, const std::vector<int> &quadrants, std::vector<int> &counts_per_quadrant)
+void count_points_in_quadrants(std::vector<float2> &points, std::vector<int> &quadrants, std::vector<int> &counts_per_quadrant)
 {
   // sequentially compute a histogram
   // TODO: parallelize this operation by
@@ -118,29 +119,39 @@ void count_points_in_quadrants(std::vector<float2> &points, const std::vector<in
 }
 
 
+std::ostream &operator<<(std::ostream &os, float2 p)
+{
+  return os << "(" << p.x << ", " << p.y << ")";
+}
+
+
 int main()
 {
   const size_t num_points = 10;
 
+  // TODO move these points to the GPU by using thrust::device_vector
   std::vector<float2> points(num_points);
 
   generate_random_points(points);
 
-  for(int i = 0, n = points.size() ; i < n ; ++i)
-    std::cout << "points[" << i << "]: x=" << points[i].x << ", y=" << points[i].y << std::endl;
+  for(int i = 0; i < points.size(); ++i)
+    std::cout << "points[" << i << "]: " << points[i] << std::endl;
   std::cout << std::endl;
 
   bounding_box box = compute_bounding_box(points);
   float2 center = box.center();
 
-  std::cout << "Bounding box: lower_left=(" << box.lower_left.x << ", " << box.lower_left.y << ")" << std::endl;
-  std::cout <<              " lower_right=(" << box.upper_right.x << ", " << box.upper_right.y << ")" << std::endl;
-  std::cout <<              " center=(" << center.x << ", " << center.y << ")" << std::endl;
+  std::cout << "Bounding box:" << std::endl;
+  std::cout << "  lower_left:  " << box.lower_left << std::endl;
+  std::cout << "  lower_right: " << box.upper_right << std::endl;
+  std::cout << "  center:      " << center << std::endl;
   std::cout << std::endl;
 
+  // TODO move these quadrants to the GPU using thrust::device_vector
   std::vector<int> quadrants(points.size());
   classify(points, center, quadrants);
 
+  // TODO move these counts to the GPU using thrust::device_vector
   std::vector<int> counts_per_quadrant(4);
   count_points_in_quadrants(points, quadrants, counts_per_quadrant);
 
@@ -151,8 +162,8 @@ int main()
   std::cout << "  Top-right   : " << counts_per_quadrant[3] << " points" << std::endl;
   std::cout << std::endl;
 
-  for(int i = 0, n = points.size() ; i < n ; ++i)
-    std::cout << "points[" << i << "]: x=" << points[i].x << ", y=" << points[i].y << std::endl;
+  for(int i = 0; i < points.size(); ++i)
+    std::cout << "points[" << i << "]: " << points[i] << std::endl;
   std::cout << std::endl;
 }
 
