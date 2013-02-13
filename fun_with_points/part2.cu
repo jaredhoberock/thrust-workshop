@@ -20,7 +20,6 @@ struct bounding_box
   __host__ __device__
   bounding_box()
   {
-    // initialize an empty box
     lower_left  = make_float2( 1e12f,  1e12f);
     upper_right = make_float2(-1e12f, -1e12f);
   }
@@ -62,6 +61,7 @@ struct bounding_box
 };
 
 
+// given an integer, output a pseudorandom 2D point
 struct random_point
 {
   __host__ __device__ unsigned int hash(unsigned int x)
@@ -98,6 +98,7 @@ bounding_box compute_bounding_box(const thrust::device_vector<float2> &points)
 }
 
 
+// given a 2D point, return which quadrant it is in
 struct classify_point
 {
   float2 center;
