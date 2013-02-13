@@ -2,6 +2,8 @@
 #include <cstdlib>
 #include <iostream>
 
+// TODO: annotate bounding_box's member functions with __host__ __device__
+// so that it is able to work with Thrust
 struct bounding_box
 {
   float2 lower_left;
@@ -50,7 +52,7 @@ struct bounding_box
 void generate_random_points(std::vector<float2> &points)
 {
   // sequentially generate some random 2D points in the unit square
-  // TODO parallelize this loop using thrust::tabulate
+  // TODO: parallelize this loop using thrust::tabulate
   for(int i = 0; i < points.size(); ++i)
   {
     float x = float(rand()) / RAND_MAX;
@@ -67,7 +69,7 @@ bounding_box compute_bounding_box(const std::vector<float2> &points)
   bounding_box result;
 
   // sequentially increase the size of result to include each point
-  // TODO parallelize this loop using thrust::reduce
+  // TODO: parallelize this loop using thrust::reduce
   for(int i = 0; i < points.size(); ++i)
   {
     // create a bounding box containing only the current point
@@ -84,7 +86,7 @@ bounding_box compute_bounding_box(const std::vector<float2> &points)
 void classify(const std::vector<float2> &points, float2 center, std::vector<int> &quadrants)
 {
   // classify each point as 
-  // TODO parallelize this loop using thrust::transform
+  // TODO: parallelize this loop using thrust::transform
   for(int i = 0; i < points.size(); ++i)
   {
     float x = points[i].x;
@@ -103,7 +105,7 @@ void classify(const std::vector<float2> &points, float2 center, std::vector<int>
 void count_points_in_quadrants(std::vector<float2> &points, const std::vector<int> &quadrants, std::vector<int> &counts_per_quadrant)
 {
   // sequentially compute a histogram
-  // TODO parallelize this operation by
+  // TODO: parallelize this operation by
   //   1. sorting points by quadrant
   //   2. reducing points by quadrant
   for(int i = 0; i < quadrants.size(); ++i)
