@@ -5,7 +5,7 @@ In this exercise, we'll become familiar with algorithms such as `thrust::transfo
 
 In `exercise.cu`, we have a familiar-looking C++ program which generates some random two-dimensional points, finds the centroid of those points, and then names which quadrant of the square centered about the centroid each point lies in.
 
-We're interested in counting how many of these points are in each of the four quadrants.
+We're dying to know how many of these points are in each of the four quadrants.
 
 The program looks like this:
 
@@ -44,5 +44,5 @@ If you've never seen `float2` before, don't worry. It's a simple built-in CUDA t
 
 Just two `float`s.
 
-Our task is to port this C++ program to run on the GPU using the [Thrust](thrust.github.com) library.
+Our task is to port this C++ program to run on the GPU using the [Thrust](thrust.github.com) library. Since the program is already broken down into a *high level description* using functions with names like `generate_random_points` and `count_points_in_quadrants`, it'll be a breeze.
 
