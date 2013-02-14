@@ -1,3 +1,6 @@
+Fun with Points!
+================
+
 In this exercise, we'll become familiar with algorithms such as `thrust::transform`, `thrust::sort`, and `thrust::reduce` to implement common parallel operations such as map and histogram construction.
 
 In `exercise.cu`, we have a familiar-looking C++ program which generates some random two-dimensional points, finds the centroid of those points, and then names which quadrant of the square centered about the centroid each point lies in.
