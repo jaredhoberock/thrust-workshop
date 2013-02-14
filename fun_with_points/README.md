@@ -7,7 +7,7 @@ In `exercise.cu`, we have a familiar-looking C++ program which generates some ra
 
 We're dying to know how many of these points are in each of the four quadrants.
 
-The program looks like this:
+At a high level, the program looks like this:
 
     int main()
     {
