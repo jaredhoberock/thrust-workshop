@@ -5,7 +5,7 @@ In this exercise, we'll become familiar with algorithms such as `thrust::transfo
 
 In `exercise.cu`, we have a familiar-looking C++ program which generates some random two-dimensional points, finds the centroid of those points, and then names which quadrant of the square centered about the centroid each point lies in.
 
-We're interested in computing how many of these points are in each of the four quadrants.
+We're interested in counting how many of these points are in each of the four quadrants.
 
 The program looks like this:
 
