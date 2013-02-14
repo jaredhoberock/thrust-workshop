@@ -44,5 +44,5 @@ If you've never seen `float2` before, don't worry. It's a simple built-in CUDA t
 
 Just two `float`s.
 
-Our task is to port this C++ program to run on the GPU using the [Thrust](thrust.github.com) library. Since the program is already broken down into a *high level description* using functions with names like `generate_random_points` and `count_points_in_quadrants`, it'll be a breeze.
+Our task is to port this C++ program to run on the GPU using the [Thrust](thrust.github.com) library. Since the program is already broken down into a __high level description__ using functions with names like `generate_random_points` and `count_points_in_quadrants` that operate on __collections of data__, it'll be a breeze.
 
