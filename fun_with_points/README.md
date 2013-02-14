@@ -34,7 +34,7 @@ The program looks like this:
       std::cout << std::endl;
     }
 
-If you've never seen `float2` before; don't worry. It's a simple built-in CUDA type that looks like this:
+If you've never seen `float2` before, don't worry. It's a simple built-in CUDA type that looks like this:
 
     struct float2
     {
