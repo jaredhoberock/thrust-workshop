@@ -172,7 +172,7 @@ We compare each point's `x` and `y` coordinate to the `centroid`, and compute a 
 
 In this example, the important thing to realize is that unlike our sequential `for` loop from the last example, none of the iterations of this `for` loop have any __dependency__ on any other iteration.
 
-Sometimes we these kinds of operations [__embarassingly parallel__](http://en.wikipedia.org/wiki/Embarassingly_parallel), because parallelizing them is embarassingly easy. Another term for this operation is a __parallel map__ because each thing (point) in our collection gets __mapped__ to another thing (a number).
+Sometimes we call these kinds of operations [__embarassingly parallel__](http://en.wikipedia.org/wiki/Embarassingly_parallel), because parallelizing them is embarassingly easy. Another term for this operation is a __parallel map__ because each thing (point) in our collection gets __mapped__ to another thing (a number).
 
 With Thrust, we can compute parallel map operations using `transform` (`map` means [`something else`](http://en.wikipedia.org/wiki/Std::map) in C++):
 
