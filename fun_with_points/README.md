@@ -92,8 +92,7 @@ In particular, we can use `thrust::tabulate` to call our `hash` function for eac
     {
       float2 operator()(unsigned int x)
       {
-        return make_float2(float(hash(x)) / UINT_MAX,
-                           float(hash(2 * x)) / UINT_MAX);
+        return make_float2(float(hash(x)) / UINT_MAX, float(hash(2 * x)) / UINT_MAX);
       }
     };
 
