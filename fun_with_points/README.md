@@ -13,7 +13,7 @@ At a high level, the program looks like this:
 
     int main()
     {
-      const size_t num_points = 1 << 20; // one MILLION points!
+      const size_t num_points = 1000000;
     
       std::vector<float2> points(num_points);
     
@@ -22,7 +22,7 @@ At a high level, the program looks like this:
       float2 centroid = compute_centroid(points);
     
       std::vector<int> quadrants(points.size());
-      classify(points, centroid, quadrants);
+      classify_points_by_quadrant(points, centroid, quadrants);
     
       std::vector<int> counts_per_quadrant(4);
       count_points_in_quadrants(points, quadrants, counts_per_quadrant);
@@ -35,7 +35,7 @@ At a high level, the program looks like this:
       std::cout << std::endl;
     }
 
-Our task is to port this C++ program to run on the GPU using the [Thrust](thrust.github.com) algorithms library. Since the program is already broken down into a __high level description__ using functions with names like `generate_random_points` and `count_points_in_quadrants` that operate on __collections of data__, it'll be a breeze.
+Let's port this C++ program to run on the GPU using the [Thrust](thrust.github.com) algorithms library. Since the program is already broken down into a __high level description__ using functions with names like `generate_random_points` and `count_points_in_quadrants` that operate on __collections of data__, it'll be a breeze.
 
 Plan of Attack
 --------------
@@ -131,7 +131,63 @@ With Thrust, reductions are easy -- we just call `reduce`:
       return make_float2(sum.x / points.size(), sum.y / points.size());
     }
 
-We start by choosing an initial value for the reduction -- `init` -- which initializes our sum to zero. Then we tell Thrust we want to `reduce` all the points from `begin` to `end` using `init` as the initial value of the sum. (If `points` was easy, `reduce` would simply return `init`.)
+We start by choosing an initial value for the reduction -- `init` -- which initializes our sum to zero. Then we tell Thrust we want to `reduce` all the points from `begin` to `end` using `init` as the initial value of the sum. (If `points` was empty, `reduce` would simply return `init`.)
 
-By default, `reduce` assumes we want to compute a mathematical sum, but it's actually a __higher order function__ like `tabulate`. If we wanted to compute some other kind of reduction besides a sum, we could pass an [associative](http://en.wikipedia.org/wiki/Associativity) function object that told Thrust how to reduce the points.
+By default, `reduce` assumes we want to compute a mathematical sum, but it's actually a __higher order function__ like `tabulate`. If we wanted to compute some other kind of reduction besides a sum, we could pass an [associative](http://en.wikipedia.org/wiki/Associativity) function object that defines what it means to combine two points together.
+
+Classifying each Point
+----------------------
+
+Before we can count how many points are in each of the four quadrants, we need to figure out which quadrant each point is in. 
+
+An easy way to do this is to compare each point to the `centroid`. The sequential code looks like this:
+
+    void classify_points_by_quadrant(const std::vector<float2> &points, float2 centroid, std::vector<int> &quadrants)
+    {
+      // classify each point relative to the centroid
+      for(int i = 0; i < points.size(); ++i)
+      {
+        float x = points[i].x;
+        float y = points[i].y;
+    
+        // bottom-left:  0
+        // bottom-right: 1
+        // top-left:     2
+        // top-right:    3
+    
+        quadrants[i] = (x <= centroid.x ? 0 : 1) | (y <= centroid.y ? 0 : 2);
+      }
+    }
+
+We compare each point's `x` and `y` coordinate to the `centroid`, and compute a number between `0` and `3` using some fancy bit manipulation with the `|` operation.
+
+In this example, the important thing to realize is that unlike our sequential `for` loop from the last example, none of this `for` loops iterations have any __dependency__ on any other iteration.
+
+Sometimes we these kinds of operations [__embarassingly parallel__](http://en.wikipedia.org/wiki/Embarassingly_parallel), because parallelizing them is embarassingly easy. Another term for this operation is a __parallel map__ because each thing (point) in our collection gets __mapped__ to another thing (an integer).
+
+With Thrust, we can compute parallel map operations using `transform` (`map` means [`something else`](http://en.wikipedia.org/wiki/Std::map) in C++):
+
+    struct classify_point
+    {
+      float2 center;
+    
+      classify_point(float2 c)
+      {
+        center = c;
+      }
+    
+      unsigned int operator()(float2 p)
+      {
+        return (p.x <= center.x ? 0 : 1) | (p.y <= center.y ? 0 : 2);
+      }
+    };
+    
+    void classify_points_by_quadrant(const std::vector<float2> &points, float2 center, std::vector<int> &quadrants)
+    {
+      thrust::transform(points.begin(), points.end(), quadrants.begin(), classify_point(center));
+    }
+
+`transform` works kind of like `tabulate`, but instead of automatically generating a series of integer indices for us, `transform` passes each point from `begin` to `end` to our `classify_point` function object.
+
+Each call to `classify_point` performs the same operation as each iteration of our sequential `for` loop. However, instead of assigning the result to `quadrants[i]`, `classify_point` returns it. Since we passed `quadrants.begin()` to `transform`, it knows where each result should go.
 

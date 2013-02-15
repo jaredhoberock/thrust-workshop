@@ -40,7 +40,7 @@ float2 compute_centroid(const std::vector<float2> &points)
 }
 
 
-void classify(const std::vector<float2> &points, float2 centroid, std::vector<int> &quadrants)
+void classify_points_by_quadrant(const std::vector<float2> &points, float2 centroid, std::vector<int> &quadrants)
 {
   // classify each point relative to the centroid
   // TODO: parallelize this loop using thrust::transform
@@ -98,7 +98,7 @@ int main()
 
   // TODO move these quadrants to the GPU using thrust::device_vector
   std::vector<int> quadrants(points.size());
-  classify(points, centroid, quadrants);
+  classify_points_by_quadrant(points, centroid, quadrants);
 
   // TODO move these counts to the GPU using thrust::device_vector
   std::vector<int> counts_per_quadrant(4);

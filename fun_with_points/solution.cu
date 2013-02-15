@@ -75,7 +75,7 @@ struct classify_point
 };
 
 
-void classify(const thrust::device_vector<float2> &points, float2 center, thrust::device_vector<int> &quadrants)
+void classify_points_by_quadrant(const thrust::device_vector<float2> &points, float2 center, thrust::device_vector<int> &quadrants)
 {
   thrust::transform(points.begin(), points.end(), quadrants.begin(), classify_point(center));
 }
@@ -115,7 +115,7 @@ int main()
   float2 centroid = compute_centroid(points);
 
   thrust::device_vector<int> quadrants(points.size());
-  classify(points, centroid, quadrants);
+  classify_points_by_quadrant(points, centroid, quadrants);
 
   thrust::device_vector<int> counts_per_quadrant(4);
   count_points_in_quadrants(points, quadrants, counts_per_quadrant);
