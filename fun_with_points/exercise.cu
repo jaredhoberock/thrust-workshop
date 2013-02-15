@@ -93,16 +93,7 @@ int main()
     std::cout << "points[" << i << "]: " << points[i] << std::endl;
   std::cout << std::endl;
 
-//  bounding_box box = compute_bounding_box(points);
-//  float2 center = box.center();
-
   float2 centroid = compute_centroid(points);
-
-//  std::cout << "Bounding box:" << std::endl;
-//  std::cout << "  lower_left:  " << box.lower_left << std::endl;
-//  std::cout << "  lower_right: " << box.upper_right << std::endl;
-//  std::cout << "  center:      " << center << std::endl;
-//  std::cout << std::endl;
 
   // TODO move these quadrants to the GPU using thrust::device_vector
   std::vector<int> quadrants(points.size());
