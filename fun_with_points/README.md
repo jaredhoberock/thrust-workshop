@@ -19,11 +19,10 @@ At a high level, the program looks like this:
     
       generate_random_points(points);
     
-      bounding_box box = compute_bounding_box(points);
-      float2 center = box.center();
+      float2 centroid = compute_centroid(points);
     
       std::vector<int> quadrants(points.size());
-      classify(points, center, quadrants);
+      classify(points, centroid, quadrants);
     
       std::vector<int> counts_per_quadrant(4);
       count_points_in_quadrants(points, quadrants, counts_per_quadrant);
@@ -102,4 +101,37 @@ In particular, we can use `thrust::tabulate` to call our `hash` function for eac
     }
 
 `thrust::tabulate` fills all the `points` from `begin` to `end` with a point created by `random_point`. Each time it calls the `random_point` [function object](http://en.wikipedia.org/wiki/Function_object#In_C_and_C.2B.2B), it passes the index of the element in question. The whole thing happens in parallel -- we have no idea in which order the points will be created. This gives Thrust a lot of flexibility in choosing how to execute the algorithm.
+
+Finding the Centroid
+--------------------
+
+The next thing we need to do is take our points and find their centroid (average). The sequential code looks like this:
+
+    float2 compute_centroid(const std::vector<float2> &points)
+    {
+      float2 sum = make_float2(0,0);
+    
+      // compute the mean
+      for(int i = 0; i < points.size(); ++i)
+      {
+        sum = sum + points[i];
+      }
+    
+      return make_float2(sum.x / points.size(), sum.y / points.size());
+    }
+
+Here, we're just summing up all the points and then dividing by the number at the end. Parallel programmers call this kind of operation a __reduction__ because we've taken a collection of things (points) and __reduced__ them to a single thing (the centroid).
+
+With Thrust, reductions are easy -- we just call `reduce`:
+
+    float2 compute_centroid(const std::vector<float2> &points)
+    {
+      float2 init = make_float2(0,0);
+      float2 sum = thrust::reduce(points.begin(), points.end(), init);
+      return make_float2(sum.x / points.size(), sum.y / points.size());
+    }
+
+We start by choosing an initial value for the reduction -- `init` -- which initializes our sum to zero. Then we tell Thrust we want to `reduce` all the points from `begin` to `end` using `init` as the initial value of the sum. (If `points` was easy, `reduce` would simply return `init`.)
+
+By default, `reduce` assumes we want to compute a mathematical sum, but it's actually a __higher order function__ like `tabulate`. If we wanted to compute some other kind of reduction besides a sum, we could pass an [associative](http://en.wikipedia.org/wiki/Associativity) function object that told Thrust how to reduce the points.
 

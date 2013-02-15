@@ -50,8 +50,8 @@ void generate_random_points(thrust::device_vector<float2> &points)
 
 float2 compute_centroid(const thrust::device_vector<float2> &points)
 {
-  float2 zero = make_float2(0,0);
-  float2 sum = thrust::reduce(points.begin(), points.end(), zero); 
+  float2 init = make_float2(0,0);
+  float2 sum = thrust::reduce(points.begin(), points.end(), init); 
   return make_float2(sum.x / points.size(), sum.y / points.size());
 }
 

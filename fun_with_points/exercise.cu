@@ -26,16 +26,17 @@ void generate_random_points(std::vector<float2> &points)
 
 float2 compute_centroid(const std::vector<float2> &points)
 {
-  float2 result = make_float2(0,0);
+  float2 sum = make_float2(0,0);
 
-  // compute the mean
+  // compute the sum
   // TODO: parallelize this sum using thrust::reduce
   for(int i = 0; i < points.size(); ++i)
   {
-    result = result + points[i];
+    sum = sum + points[i];
   }
 
-  return make_float2(result.x / points.size(), result.y / points.size());
+  // divide the sum by the number of points
+  return make_float2(sum.x / points.size(), sum.y / points.size());
 }
 
 
