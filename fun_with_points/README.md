@@ -102,5 +102,5 @@ In particular, we can use `thrust::tabulate` to call our `hash` function for eac
       thrust::tabulate(points.begin(), points.end(), random_point());
     }
 
-`thrust::tabulate` fills `points` with a point created by `random_point`. Each time it calls the `random_point` functor, it passes the index of the element in question. The whole thing happens in parallel -- we have no idea in which order the points will be created. This gives Thrust a lot of flexibility in choosing how to execute the algorithm.
+`thrust::tabulate` fills all the `points` from `begin` to `end` with a point created by `random_point`. Each time it calls the `random_point` functor, it passes the index of the element in question. The whole thing happens in parallel -- we have no idea in which order the points will be created. This gives Thrust a lot of flexibility in choosing how to execute the algorithm.
 
