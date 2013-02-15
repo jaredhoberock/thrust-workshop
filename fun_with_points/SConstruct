@@ -1,5 +1,26 @@
+# How to get scons:
+#
+# On Debian-based distributions like Ubuntu:
+#   $ sudo apt-get install scons
+# On Redhat distributions:
+#   $ sudo yum install scons
+# On Windows:
+#   http://prdownloads.sourceforge.net/scons/scons-2.2.0-setup.exe
+# On OSX with HomeBrew:
+#   $ sudo brew install scons
+#
+# If you don't want to mess with scons, you can also build the programs on the command line:
+# $ nvcc -I. exercise.cu -o exercise
+# $ nvcc -I. solution.cu -o solution
+
 import os
 import platform
+
+Help("""
+Type: 'scons' to build everything.
+      'scons exercise' to build the exercise program.
+      'scons solution' to build the solution program.
+""")
 
 # tell SCons about the NVIDIA compiler
 env = Environment(tools = ['default', 'nvcc'])
