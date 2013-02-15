@@ -1,11 +1,13 @@
 Fun with Points!
 ================
 
-In this exercise, we'll become familiar with algorithms such as `thrust::transform`, `thrust::sort`, and `thrust::reduce` to implement common parallel operations such as map and histogram construction.
+Have you ever wondered how to build parallel programs that run on GPUs? It turns out it's easy when you have the [right tools](https://developer.nvidia.com/cuda-downloads).
+
+In this post, we'll become familiar with algorithms such as `transform`, `sort`, and `reduce` to implement common parallel operations such as map and histogram construction. And they'll run on the GPU.
 
 In `exercise.cu`, we have a familiar-looking C++ program which generates some random two-dimensional points, finds the centroid of those points, and then names which quadrant of the square centered about the centroid each point lies in.
 
-We're dying to know how many of these points are in each of the four quadrants.
+We're dying to find out how many of these points are in each of the four quadrants.
 
 At a high level, the program looks like this:
 
