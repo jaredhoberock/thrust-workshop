@@ -1,3 +1,12 @@
+TL;DR
+=====
+
+    $ git clone git://github.com/jaredhoberock/thrust-workshop
+    $ cd thrust-workshop/fun_with_points
+    $ scons
+    $ ./exercise
+    $ ./spoilers
+
 Fun with Points!
 ================
 

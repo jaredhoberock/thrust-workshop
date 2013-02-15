@@ -13,7 +13,8 @@ float2 operator+(float2 a, float2 b)
 void generate_random_points(std::vector<float2> &points)
 {
   // sequentially generate some random 2D points in the unit square
-  // TODO: parallelize this loop using thrust::tabulate and thrust::default_random_engine
+  std::cout << "TODO: parallelize this loop using thrust::tabulate\n" << std::endl;
+
   for(int i = 0; i < points.size(); ++i)
   {
     float x = float(rand()) / RAND_MAX;
@@ -29,7 +30,7 @@ float2 compute_centroid(const std::vector<float2> &points)
   float2 sum = make_float2(0,0);
 
   // compute the sum
-  // TODO: parallelize this sum using thrust::reduce
+  std::cout << "TODO: parallelize this sum using thrust::reduce\n" << std::endl;
   for(int i = 0; i < points.size(); ++i)
   {
     sum = sum + points[i];
@@ -43,7 +44,7 @@ float2 compute_centroid(const std::vector<float2> &points)
 void classify_points_by_quadrant(const std::vector<float2> &points, float2 centroid, std::vector<int> &quadrants)
 {
   // classify each point relative to the centroid
-  // TODO: parallelize this loop using thrust::transform
+  std::cout << "TODO: parallelize this loop using thrust::transform\n" << std::endl;
   for(int i = 0; i < points.size(); ++i)
   {
     float x = points[i].x;
@@ -62,9 +63,9 @@ void classify_points_by_quadrant(const std::vector<float2> &points, float2 centr
 void count_points_in_quadrants(std::vector<float2> &points, std::vector<int> &quadrants, std::vector<int> &counts_per_quadrant)
 {
   // sequentially compute a histogram
-  // TODO: parallelize this operation by
-  //   1. sorting points by quadrant
-  //   2. reducing points by quadrant
+  std::cout << "TODO: parallelize this loop by" << std::endl;
+  std::cout << "   1. sorting points by quadrant" << std::endl;
+  std::cout << "   2. reducing points by quadrant\n" << std::endl;
   for(int i = 0; i < quadrants.size(); ++i)
   {
     int q = quadrants[i];
@@ -85,7 +86,7 @@ int main()
 {
   const size_t num_points = 10;
 
-  // TODO move these points to the GPU by using thrust::device_vector
+  std::cout << "TODO: move these points to the GPU using thrust::device_vector" << std::endl;
   std::vector<float2> points(num_points);
 
   generate_random_points(points);
@@ -96,11 +97,11 @@ int main()
 
   float2 centroid = compute_centroid(points);
 
-  // TODO move these quadrants to the GPU using thrust::device_vector
+  std::cout << "TODO: move these quadrants to the GPU using thrust::device_vector" << std::endl;
   std::vector<int> quadrants(points.size());
   classify_points_by_quadrant(points, centroid, quadrants);
 
-  // TODO move these counts to the GPU using thrust::device_vector
+  std::cout << "TODO: move these counts to the GPU using thrust::device_vector" << std::endl;
   std::vector<int> counts_per_quadrant(4);
   count_points_in_quadrants(points, quadrants, counts_per_quadrant);
 

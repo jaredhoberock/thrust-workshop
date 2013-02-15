@@ -11,7 +11,7 @@
 #
 # If you don't want to mess with scons, you can also build the programs on the command line:
 # $ nvcc -I. exercise.cu -o exercise
-# $ nvcc -I. solution.cu -o solution
+# $ nvcc -I. spoilers.cu -o spoilers
 
 import os
 import platform
@@ -19,7 +19,7 @@ import platform
 Help("""
 Type: 'scons' to build everything.
       'scons exercise' to build the exercise program.
-      'scons solution' to build the solution program.
+      'scons spoilers' to build the solution (spoilers!) program.
 """)
 
 # tell SCons about the NVIDIA compiler
@@ -56,5 +56,5 @@ env.Append(CPPPATH = ".")
 env.Program("exercise.cu")
 
 # build the solution
-env.Program("solution.cu")
+env.Program("spoilers.cu")
 
