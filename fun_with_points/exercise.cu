@@ -2,52 +2,12 @@
 #include <cstdlib>
 #include <iostream>
 
-// an axis-aligned 2D bounding_box is a lower left corner and an upper right corner
-// TODO: annotate bounding_box's member functions with __host__ __device__
-// so that it is able to work with Thrust
-struct bounding_box
+// TODO: annotate this function with __host__ __device__ so
+//       so that they are able to work with Thrust
+float2 operator+(float2 a, float2 b)
 {
-  float2 lower_left;
-  float2 upper_right;
-
-  // construct an empty box
-  bounding_box()
-  {
-    lower_left  = make_float2( 1e12f,  1e12f);
-    upper_right = make_float2(-1e12f, -1e12f);
-  }
-
-  // construct a box from a single point
-  bounding_box(float2 p)
-  {
-    lower_left  = p;
-    upper_right = p;
-  }
-
-  // construct a box from two corners
-  bounding_box(float2 ll, float2 ur)
-  {
-    lower_left = ll;
-    upper_right = ur;
-  }
-
-  // return the center of the box
-  float2 center() const
-  {
-    return make_float2(0.5f * (lower_left.x + upper_right.x), 0.5f * (lower_left.y + upper_right.y));
-  }
-
-  // add that box to this one and return the result
-  bounding_box operator+(const bounding_box &box)
-  {
-    float min_x = min(lower_left.x, box.lower_left.x);
-    float min_y = min(lower_left.y, box.lower_left.y);
-    float max_x = max(upper_right.x, box.upper_right.x);
-    float max_y = max(upper_right.y, box.upper_right.y);
-
-    return bounding_box(make_float2(min_x, min_y), make_float2(max_x, max_y));
-  }
-};
+  return make_float2(a.x + b.x, a.y + b.y);
+}
 
 
 void generate_random_points(std::vector<float2> &points)
@@ -64,29 +24,24 @@ void generate_random_points(std::vector<float2> &points)
 }
 
 
-bounding_box compute_bounding_box(const std::vector<float2> &points)
+float2 compute_centroid(const std::vector<float2> &points)
 {
-  // start with an empty box
-  bounding_box result;
+  float2 result = make_float2(0,0);
 
-  // sequentially increase the size of result to include each point
-  // TODO: parallelize this loop using thrust::reduce
+  // compute the mean
+  // TODO: parallelize this sum using thrust::reduce
   for(int i = 0; i < points.size(); ++i)
   {
-    // create a bounding box containing only the current point
-    bounding_box current_point = bounding_box(points[i]);
-
-    // increase the size of the box
-    result = result + current_point;
+    result = result + points[i];
   }
 
-  return result;
+  return make_float2(result.x / points.size(), result.y / points.size());
 }
 
 
-void classify(const std::vector<float2> &points, float2 center, std::vector<int> &quadrants)
+void classify(const std::vector<float2> &points, float2 centroid, std::vector<int> &quadrants)
 {
-  // classify each point relative to the center
+  // classify each point relative to the centroid
   // TODO: parallelize this loop using thrust::transform
   for(int i = 0; i < points.size(); ++i)
   {
@@ -98,7 +53,7 @@ void classify(const std::vector<float2> &points, float2 center, std::vector<int>
     // top-left:     2
     // top-right:    3
 
-    quadrants[i] = (x <= center.x ? 0 : 1) | (y <= center.y ? 0 : 2);
+    quadrants[i] = (x <= centroid.x ? 0 : 1) | (y <= centroid.y ? 0 : 2);
   }
 }
 
@@ -138,18 +93,20 @@ int main()
     std::cout << "points[" << i << "]: " << points[i] << std::endl;
   std::cout << std::endl;
 
-  bounding_box box = compute_bounding_box(points);
-  float2 center = box.center();
+//  bounding_box box = compute_bounding_box(points);
+//  float2 center = box.center();
 
-  std::cout << "Bounding box:" << std::endl;
-  std::cout << "  lower_left:  " << box.lower_left << std::endl;
-  std::cout << "  lower_right: " << box.upper_right << std::endl;
-  std::cout << "  center:      " << center << std::endl;
-  std::cout << std::endl;
+  float2 centroid = compute_centroid(points);
+
+//  std::cout << "Bounding box:" << std::endl;
+//  std::cout << "  lower_left:  " << box.lower_left << std::endl;
+//  std::cout << "  lower_right: " << box.upper_right << std::endl;
+//  std::cout << "  center:      " << center << std::endl;
+//  std::cout << std::endl;
 
   // TODO move these quadrants to the GPU using thrust::device_vector
   std::vector<int> quadrants(points.size());
-  classify(points, center, quadrants);
+  classify(points, centroid, quadrants);
 
   // TODO move these counts to the GPU using thrust::device_vector
   std::vector<int> counts_per_quadrant(4);

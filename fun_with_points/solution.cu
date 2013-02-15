@@ -10,55 +10,12 @@
 #include <iostream>
 #include <cstdio>
 
-// an axis-aligned 2D bounding_box is a lower left corner and an upper right corner
-struct bounding_box
+
+__host__ __device__
+float2 operator+(float2 a, float2 b)
 {
-  float2 lower_left;
-  float2 upper_right;
-
-  // construct an empty box
-  __host__ __device__
-  bounding_box()
-  {
-    lower_left  = make_float2( 1e12f,  1e12f);
-    upper_right = make_float2(-1e12f, -1e12f);
-  }
-
-  // construct a box from a single point
-  __host__ __device__
-  bounding_box(float2 p)
-  {
-    lower_left  = p;
-    upper_right = p;
-  }
-
-  // construct a box from two corners
-  __host__ __device__
-  bounding_box(float2 ll, float2 ur)
-  {
-    lower_left = ll;
-    upper_right = ur;
-  }
-
-  // return the center of the box
-  __host__ __device__
-  float2 center() const
-  {
-    return make_float2(0.5f * (lower_left.x + upper_right.x), 0.5f * (lower_left.y + upper_right.y));
-  }
-
-  // add that box to this one and return the result
-  __host__ __device__
-  bounding_box operator+(const bounding_box &box) const
-  {
-    float min_x = min(lower_left.x, box.lower_left.x);
-    float min_y = min(lower_left.y, box.lower_left.y);
-    float max_x = max(upper_right.x, box.upper_right.x);
-    float max_y = max(upper_right.y, box.upper_right.y);
-
-    return bounding_box(make_float2(min_x, min_y), make_float2(max_x, max_y));
-  }
-};
+  return make_float2(a.x + b.x, a.y + b.y);
+}
 
 
 // given an integer, output a pseudorandom 2D point
@@ -91,10 +48,11 @@ void generate_random_points(thrust::device_vector<float2> &points)
 }
 
 
-bounding_box compute_bounding_box(const thrust::device_vector<float2> &points)
+float2 compute_centroid(const thrust::device_vector<float2> &points)
 {
-  bounding_box empty;
-  return thrust::reduce(points.begin(), points.end(), empty);
+  float2 zero = make_float2(0,0);
+  float2 sum = thrust::reduce(points.begin(), points.end(), zero); 
+  return make_float2(sum.x / points.size(), sum.y / points.size());
 }
 
 
@@ -154,21 +112,10 @@ int main()
     std::cout << "points[" << i << "]: " << points[i] << std::endl;
   std::cout << std::endl;
 
-  bounding_box box = compute_bounding_box(points);
-  float2 center = box.center();
-
-  std::cout << "Bounding box:" << std::endl;
-  std::cout << "  lower_left:  " << box.lower_left << std::endl;
-  std::cout << "  lower_right: " << box.upper_right << std::endl;
-  std::cout << "  center:      " << center << std::endl;
-  std::cout << std::endl;
+  float2 centroid = compute_centroid(points);
 
   thrust::device_vector<int> quadrants(points.size());
-  classify(points, center, quadrants);
-
-  std::cout << "Quadrants: " << std::endl;
-  for(int i = 0; i < quadrants.size(); ++i)
-    std::cout << "  " << i << ": " << quadrants[i] << std::endl;
+  classify(points, centroid, quadrants);
 
   thrust::device_vector<int> counts_per_quadrant(4);
   count_points_in_quadrants(points, quadrants, counts_per_quadrant);
