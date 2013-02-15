@@ -159,11 +159,11 @@ An easy way to do this is to compare each point to the `centroid`. The sequentia
       }
     }
 
-We compare each point's `x` and `y` coordinate to the `centroid`, and compute a number between `0` and `3` using some fancy bit manipulation with the `|` operation.
+We compare each point's `x` and `y` coordinate to the `centroid`, and compute a number between `0` and `3` using some fancy bitwise manipulation with the `|` operation.
 
-In this example, the important thing to realize is that unlike our sequential `for` loop from the last example, none of this `for` loops iterations have any __dependency__ on any other iteration.
+In this example, the important thing to realize is that unlike our sequential `for` loop from the last example, none of the iterations of this `for` loop have any __dependency__ on any other iteration.
 
-Sometimes we these kinds of operations [__embarassingly parallel__](http://en.wikipedia.org/wiki/Embarassingly_parallel), because parallelizing them is embarassingly easy. Another term for this operation is a __parallel map__ because each thing (point) in our collection gets __mapped__ to another thing (an integer).
+Sometimes we these kinds of operations [__embarassingly parallel__](http://en.wikipedia.org/wiki/Embarassingly_parallel), because parallelizing them is embarassingly easy. Another term for this operation is a __parallel map__ because each thing (point) in our collection gets __mapped__ to another thing (a number).
 
 With Thrust, we can compute parallel map operations using `transform` (`map` means [`something else`](http://en.wikipedia.org/wiki/Std::map) in C++):
 

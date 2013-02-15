@@ -1,0 +1,39 @@
+import os
+import platform
+
+# tell SCons about the NVIDIA compiler
+env = Environment(tools = ['default', 'nvcc'])
+
+if env['CXX'] == 'g++':
+  # when compiling with g++, link against the standard library
+  # we don't have to do this with cl.exe
+  env.Append(LIBS = ['stdc++'])
+
+# find the CUDA runtime and link against it
+# determine defaults
+if os.name == 'nt':
+  cuda_lib_path = 'C:/CUDA/lib'
+elif os.name == 'posix':
+  cuda_lib_path = '/usr/local/cuda/lib'
+else:
+  raise ValueError, 'Error: unknown OS.  Where is CUDA installed?'
+   
+if platform.machine()[-2:] == '64':
+  cuda_lib_path += '64'
+
+# override with environment variable if it exists
+if 'CUDA_LIB_PATH' in os.environ:
+  cuda_lib_path = os.path.abspath(os.environ['CUDA_LIB_PATH'])
+
+env.Append(LIBPATH = [cuda_lib_path])
+env.Append(LIBS = ['cudart'])
+
+# add the current directory to the #include path
+env.Append(CPPPATH = ".")
+
+# build the exercise
+env.Program("exercise.cu")
+
+# build the solution
+env.Program("solution.cu")
+
