@@ -102,15 +102,11 @@ std::ostream &operator<<(std::ostream &os, float2 p)
 
 int main()
 {
-  const size_t num_points = 10;
+  const size_t num_points = 10000000;
 
   thrust::device_vector<float2> points(num_points);
 
   generate_random_points(points);
-
-  for(int i = 0; i < points.size(); ++i)
-    std::cout << "points[" << i << "]: " << points[i] << std::endl;
-  std::cout << std::endl;
 
   float2 centroid = compute_centroid(points);
 
@@ -125,10 +121,6 @@ int main()
   std::cout << "  Bottom-right: " << counts_per_quadrant[1] << " points" << std::endl;
   std::cout << "  Top-left    : " << counts_per_quadrant[2] << " points" << std::endl;
   std::cout << "  Top-right   : " << counts_per_quadrant[3] << " points" << std::endl;
-  std::cout << std::endl;
-
-  for(int i = 0; i < points.size(); ++i)
-    std::cout << "points[" << i << "]: " << points[i] << std::endl;
   std::cout << std::endl;
 }
 

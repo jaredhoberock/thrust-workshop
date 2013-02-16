@@ -85,16 +85,12 @@ void count_points_in_quadrants(std::vector<float2> &points, std::vector<int> &qu
 
 int main()
 {
-  const size_t num_points = 10;
+  const size_t num_points = 10000000;
 
   std::cout << "TODO: move these points to the GPU using thrust::device_vector\n" << std::endl;
   std::vector<float2> points(num_points);
 
   generate_random_points(points);
-
-  for(int i = 0; i < points.size(); ++i)
-    std::cout << "points[" << i << "]: " << points[i] << std::endl;
-  std::cout << std::endl;
 
   float2 centroid = compute_centroid(points);
 
@@ -111,10 +107,6 @@ int main()
   std::cout << "  Bottom-right: " << counts_per_quadrant[1] << " points" << std::endl;
   std::cout << "  Top-left    : " << counts_per_quadrant[2] << " points" << std::endl;
   std::cout << "  Top-right   : " << counts_per_quadrant[3] << " points" << std::endl;
-  std::cout << std::endl;
-
-  for(int i = 0; i < points.size(); ++i)
-    std::cout << "points[" << i << "]: " << points[i] << std::endl;
   std::cout << std::endl;
 }
 
