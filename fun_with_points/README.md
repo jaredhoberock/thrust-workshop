@@ -26,7 +26,7 @@ At a high level, the program looks like this:
 
     int main()
     {
-      const size_t num_points = 1000000;
+      const size_t num_points = 10000000;
     
       std::vector<float2> points(num_points);
     
