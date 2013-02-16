@@ -277,7 +277,7 @@ And the reduced value:
 
 Just like `reduce`, `reduce_by_key`'s default reduction is a sum. So for each key, we're summing up the value `1`, which comes from that `constant_iterator` thing.
 
-[Iterators](http://en.wikipedia.org/wiki/Iterator) are like pointers. They're how Thrust knows where to find the inputs and outputs to each algorithm -- `.begin()` and `.end()` we've used are examples but you can also [get fancy](http://thrust.github.com/doc/group__fancyiterator.html) with iterators like `constant_iterator` and `discard_iterator` to generate data on the fly.
+[Iterators](http://en.wikipedia.org/wiki/Iterator) are like pointers. They're how Thrust knows where to find the inputs and outputs to each algorithm. The `.begin()` and `.end()` thingies we've used are examples but you can also [get fancy](http://thrust.github.com/doc/group__fancyiterator.html) with iterators like `constant_iterator` and `discard_iterator` to generate data on the fly.
 
 Here's the whole function:
 
