@@ -75,7 +75,7 @@ Let's start out with taking a look at the inside of `generate_random_points`:
       }
     }
 
-It's basically a __sequential__ `for` loop that calls `rand` a bunch of times. Since `for` loops are sequential, each iteration of this loop gets executed one at a time, in order. Not very parallel.
+It's basically a __sequential__ `for` loop that calls `rand` a bunch of times. That means that each iteration of this loop gets executed one at a time, in order. Not very parallel.
 
 To make matters worse, we know that the reason you get a different number each time you call `rand` is because there's some secret __implicit shared state__ inside that gets updated with each call. If we called `rand` a bunch of times in parallel all at once, they might run into each other!
 
