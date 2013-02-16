@@ -244,7 +244,7 @@ Here, we're telling Thrust to consider all the quadrant numbers from `begin` to 
 
 So now our points are sorted, but so what? How does sorting help us count them? How do we use `reduce`?
 
-Since by sorting we've brought all of the things (points) with the same key (quadrant number) together, we can do a special kind of operation called a __reduction by key__ to count them all at once:
+Since by sorting we've brought all of the things (points) with the same key (quadrant number) together, we can do a special kind of __reducing by key__ operation to count them all at once:
 
     thrust::reduce_by_key(quadrants.begin(), quadrants.end(),
                           thrust::constant_iterator<int>(1),
