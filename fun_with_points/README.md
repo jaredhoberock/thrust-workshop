@@ -213,7 +213,8 @@ When we have a set of buckets (quadrants) and we want to count how many things (
 
 The sequential code counts up the points by looping over them and incrementing a counter in each bucket:
 
-    void count_points_in_quadrants(std::vector<float2> &points, std::vector<int> &quadrants, std::vector<int> &counts_per_quadrant)
+    void count_points_in_quadrants(std::vector<float2> &points, std::vector<int> &quadrants,
+                                   std::vector<int> &counts_per_quadrant)
     {
       // sequentially compute a histogram
       for(int i = 0; i < quadrants.size(); ++i)
@@ -276,7 +277,8 @@ Iterators are like pointers. They're how Thrust knows where to find the inputs a
 
 Here's the whole function:
 
-    void count_points_in_quadrants(std::vector<float2> &points, std::vector<int> &quadrants, std::vector<int> &counts_per_quadrant)
+    void count_points_in_quadrants(std::vector<float2> &points, std::vector<int> &quadrants,
+                                   std::vector<int> &counts_per_quadrant)
     {
       // sort points by quadrant
       thrust::sort_by_key(quadrants.begin(), quadrants.end(), points.begin());
