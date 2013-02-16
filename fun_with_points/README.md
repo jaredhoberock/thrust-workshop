@@ -14,7 +14,7 @@ Building __parallel programs__ is easy with __power tools__ like parallel __maps
 Fun with Points!
 ================
 
-Have you ever wondered how to build programs that run on parallel processors like GPUs? It turns out it's easy if you're __thinking parallel__.
+Have you ever wondered how to build programs that run on parallel processors like GPUs? It turns out it's easy if you __think parallel__.
 
 In this post, we'll become familiar with algorithms such as `transform`, `sort`, and `reduce` to implement common parallel operations such as map and histogram construction. And they'll run on the GPU.
 
