@@ -305,5 +305,5 @@ Even though we've rewritten our program to use parallel Thrust algorithms, we're
 
 Remember how I said that describing our program as a __composition of high-level parallel algorithms__ gives Thrust a lot of __flexibility__ in deciding how to execute? Here's where we take advantage of that flexibility.
 
-Porting our program to run on the GPU is the easiest part. To point Thrust at the GPU, all we need to do is `s/std::vector/thrust::device_vector/` and we're set. `device_vector` is a special kind of vector container that sticks its data in memory that's easy for the GPU to access. Whenever a Thrust algorithm gets its input and output from a `device_vector`, that algorithm will *execute on the GPU in parallel*.
+Porting our program to run on the GPU is the easiest part. To point Thrust at the GPU, all we need to do is `s/std::vector/thrust::device_vector/` and we're set. `device_vector` is a special kind of vector container that sticks its data in memory that's easy for the GPU to access. Whenever a Thrust algorithm gets its input and output from a `device_vector`, that algorithm will __execute on the GPU in parallel__.
 
