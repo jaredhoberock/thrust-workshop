@@ -1,7 +1,7 @@
 TL;DR
 =====
 
-Building __parallel programs__ is easy with __power tools__ like parallel __maps__, __sorts__, and __reductions__.
+Building __parallel programs__ is easy with [Thrust's](thrust.github.com) __power tools__ like parallel __maps__, __sorts__, and __reductions__.
 
     $ git clone git://github.com/jaredhoberock/thrust-workshop
     $ cd thrust-workshop/fun_with_points
