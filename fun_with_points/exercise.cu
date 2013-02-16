@@ -2,6 +2,13 @@
 #include <cstdlib>
 #include <iostream>
 
+
+std::ostream &operator<<(std::ostream &os, float2 p)
+{
+  return os << "(" << p.x << ", " << p.y << ")";
+}
+
+
 // TODO: annotate this function with __host__ __device__ so
 //       so that they are able to work with Thrust
 float2 operator+(float2 a, float2 b)
@@ -76,17 +83,11 @@ void count_points_in_quadrants(std::vector<float2> &points, std::vector<int> &qu
 }
 
 
-std::ostream &operator<<(std::ostream &os, float2 p)
-{
-  return os << "(" << p.x << ", " << p.y << ")";
-}
-
-
 int main()
 {
   const size_t num_points = 10;
 
-  std::cout << "TODO: move these points to the GPU using thrust::device_vector" << std::endl;
+  std::cout << "TODO: move these points to the GPU using thrust::device_vector\n" << std::endl;
   std::vector<float2> points(num_points);
 
   generate_random_points(points);
@@ -97,11 +98,11 @@ int main()
 
   float2 centroid = compute_centroid(points);
 
-  std::cout << "TODO: move these quadrants to the GPU using thrust::device_vector" << std::endl;
+  std::cout << "TODO: move these quadrants to the GPU using thrust::device_vector\n" << std::endl;
   std::vector<int> quadrants(points.size());
   classify_points_by_quadrant(points, centroid, quadrants);
 
-  std::cout << "TODO: move these counts to the GPU using thrust::device_vector" << std::endl;
+  std::cout << "TODO: move these counts to the GPU using thrust::device_vector\n" << std::endl;
   std::vector<int> counts_per_quadrant(4);
   count_points_in_quadrants(points, quadrants, counts_per_quadrant);
 
