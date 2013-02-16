@@ -276,15 +276,15 @@ Iterators are like pointers. They're how Thrust knows where to find the inputs a
 
 Here's the whole function:
 
-  void count_points_in_quadrants(std::vector<float2> &points, std::vector<int> &quadrants, std::vector<int> &counts_per_quadrant)
-  {
-    // sort points by quadrant
-    thrust::sort_by_key(quadrants.begin(), quadrants.end(), points.begin());
-  
-    // count points in each quadrant
-    thrust::reduce_by_key(quadrants.begin(), quadrants.end(),
-                          thrust::constant_iterator<int>(1),
-                          thrust::discard_iterator<>(),
-                          counts_per_quadrant.begin());
-  }
+    void count_points_in_quadrants(std::vector<float2> &points, std::vector<int> &quadrants, std::vector<int> &counts_per_quadrant)
+    {
+      // sort points by quadrant
+      thrust::sort_by_key(quadrants.begin(), quadrants.end(), points.begin());
+    
+      // count points in each quadrant
+      thrust::reduce_by_key(quadrants.begin(), quadrants.end(),
+                            thrust::constant_iterator<int>(1),
+                            thrust::discard_iterator<>(),
+                            counts_per_quadrant.begin());
+    }
 
