@@ -260,7 +260,7 @@ Like `sort_by_key`, `reduce_by_key` takes a collection of __keys__:
 
 And a collection of __values__:
 
-    thrust::constant_iterator<int>(1) // The endlessly repeating sequence 1, 1, 1, ....
+    thrust::constant_iterator<int>(1) // The endlessly repeating sequence 1, 1, 1, ...
 
 And __reduces__ each span of contiguous values with the same key. For each span, it returns the key:
 
