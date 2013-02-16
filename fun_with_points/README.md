@@ -50,6 +50,8 @@ At a high level, the program looks like this:
 
 Let's port this C++ program to run on the GPU using the [Thrust](thrust.github.com) algorithms library. Since the program is already broken down into a __high level description__ using functions with names like `generate_random_points` and `count_points_in_quadrants` that operate on __collections of data__, it'll be a breeze.
 
+To follow along with this post in `example.cu`, type `scons example` into your command line to build the program, and `./example` to run it. You'll need to install [CUDA](https://developer.nvidia.com/cuda-downloads) to get NVIDIA's compiler to compile `.cu` files and [SCons](http://www.scons.org/), which is the build system we'll use.
+
 Plan of Attack
 --------------
 
