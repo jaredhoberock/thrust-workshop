@@ -75,14 +75,15 @@ Let's start out with taking a look at the inside of `generate_random_points`:
       }
     }
 
-It's basically a sequential `for` loop that calls `rand` a bunch of times. Not very parallel.
+It's basically a __sequential__ `for` loop that calls `rand` a bunch of times. Since `for` loops are sequential, each iteration of this loop gets executed one at a time, in order. Not very parallel.
 
-To make matters worse, we know that the reason you get a different number each time you call `rand` is because there's some secret __implicit shared state__ inside that gets updated with each call. If we called `rand` a bunch of times in parallel from different threads, they might run into each other!
+To make matters worse, we know that the reason you get a different number each time you call `rand` is because there's some secret __implicit shared state__ inside that gets updated with each call. If we called `rand` a bunch of times in parallel all at once, they might run into each other!
 
 We'll need to __rethink our algorithm__ if we want to parallelize this operation.
 
 Besides the stateful method used by `rand`, [it turns out](http://www.deshawresearch.com/resources_random123.html) another reasonable way to generate pseudorandom numbers is with a stateless integer hash, like this one right here:
 
+    __host__ __device__
     unsigned int hash(unsigned int x)
     {
       x = (x+0x7ed55d16) + (x<<12);
@@ -94,7 +95,7 @@ Besides the stateful method used by `rand`, [it turns out](http://www.deshawrese
       return x;
     }
 
-No state here -- to get a number, all we need to do is stick an integer in.
+No state here -- to get a number, all we need to do is stick an integer in. But what's this `__host__ __device__` business? That's there to let the CUDA C++ compiler know that the `hash` function can be called from either the `__host__` (the CPU) or the `__device__` (the GPU). Without it, our program won't compile.
 
 But what about that sequential `for` loop? That's where Thrust comes in. Thrust has a [large suite of algorithms](http://thrust.github.com/doc/group__algorithms.html) for solving parallel problems like this one.
 
@@ -102,6 +103,7 @@ In particular, we can use `thrust::tabulate` to call our `hash` function for eac
 
     struct random_point
     {
+      __host__ __device__
       float2 operator()(unsigned int x)
       {
         return make_float2(float(hash(x)) / UINT_MAX, float(hash(2 * x)) / UINT_MAX);
@@ -184,11 +186,13 @@ With Thrust, we can compute parallel map operations using `transform` (`map` mea
     {
       float2 center;
     
+      __host__ __device__
       classify_point(float2 c)
       {
         center = c;
       }
     
+      __host__ __device__
       unsigned int operator()(float2 p)
       {
         return (p.x <= center.x ? 0 : 1) | (p.y <= center.y ? 0 : 2);
@@ -289,4 +293,13 @@ Here's the whole function:
                             thrust::discard_iterator<>(),
                             counts_per_quadrant.begin());
     }
+
+Pointing it at the GPU
+----------------------
+
+So we're all done, right? Not quite. Remember I said that we'd attack our porting problem in two parts: first by reorganizing our code into high-level parallel operations, and then by pointing those parallel operations at the GPU.
+
+Even though we've rewritten our program to use parallel Thrust algorithms, we're still not done yet. By default, whenever the inputs to Thrust algorithms come from things like `std::vector`, Thrust executes those algorithms sequentially on the CPU.
+
+Fortunately, this is the easiest part. To point Thrust at the GPU, all we need to do is `s/std::vector/thrust::device_vector/` and we're set. `device_vector` is a special kind of vector container that sticks its data in memory that's easy for the GPU to access. Whenever a Thrust algorithm gets its input and output from a `device_vector`, that algorithm will *execute on the GPU in parallel*.
 
