@@ -1,7 +1,7 @@
 TL;DR
 =====
 
-Building __parallel programs__ is easy with [Thrust's](thrust.github.com) __power tools__ like parallel __maps__, __sorts__, and __reductions__.
+Building __parallel programs__ is easy with [Thrust's](http://thrust.github.com) __power tools__ like parallel __maps__, __sorts__, and __reductions__.
 
     $ git clone git://github.com/jaredhoberock/thrust-workshop
     $ cd thrust-workshop/fun_with_points
@@ -18,7 +18,7 @@ Have you ever wondered how to build programs that run on parallel processors lik
 
 In this post, we'll become familiar with algorithms such as `transform`, `sort`, and `reduce` to implement common parallel operations such as map and histogram construction. And they'll run on the GPU.
 
-In `exercise.cu`, we have a C++ program which generates some random two-dimensional points, finds the centroid of those points, and then names which quadrant of the square centered about the centroid each point lies in.
+In [`exercise.cu`](exercise.cu), we have a C++ program which generates some random two-dimensional points, finds the centroid of those points, and then names which quadrant of the square centered about the centroid each point lies in.
 
 We're dying to find out how many of these points are in each of the four quadrants.
 
@@ -48,7 +48,7 @@ At a high level, the program looks like this:
       std::cout << std::endl;
     }
 
-Let's port this C++ program to run on the GPU using the [Thrust](thrust.github.com) algorithms library. Since the program is already broken down into a __high level description__ using functions with names like `generate_random_points` and `count_points_in_quadrants` that operate on __collections of data__, it'll be a breeze.
+Let's port this C++ program to run on the GPU using the [Thrust](http://thrust.github.com) algorithms library. Since the program is already broken down into a __high level description__ using functions with names like `generate_random_points` and `count_points_in_quadrants` that operate on __collections of data__, it'll be a breeze.
 
 To follow along with this post in `example.cu`, type `scons example` into your command line to build the program, and `./example` to run it. You'll need to install [CUDA](https://developer.nvidia.com/cuda-downloads) to get NVIDIA's compiler to compile `.cu` files and [SCons](http://www.scons.org/), which is the build system we'll use.
 
