@@ -20,6 +20,8 @@ Help("""
 Type: 'scons' to build everything.
       'scons exercise' to build the exercise program.
       'scons spoilers' to build the solution (spoilers!) program.
+      'scons cpu_performance' to build a program which measures the performance of the solution on the CPU.
+      'scons gpu_performance' to build a program which measures the performance of the solution on the GPU.
 """)
 
 # tell SCons about the NVIDIA compiler
@@ -52,9 +54,24 @@ env.Append(LIBS = ['cudart'])
 # add the current directory to the #include path
 env.Append(CPPPATH = ".")
 
+# enable optimization
+if env['CXX'] == 'g++':
+  env.Append(CCFLAGS = ['-O3'])
+else:
+  env.Append(CCFLAGS = ['/x'])
+
 # build the exercise
 env.Program("exercise.cu")
 
 # build the solution
 env.Program("spoilers.cu")
+
+# build the performance programs
+gpu_obj = env.Object("gpu_performance", "performance.cu", NVCCFLAGS = ["-DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_CUDA"])
+env.Program("gpu_performance", gpu_obj)
+
+cpu_obj = env.Object("cpu_performance", "performance.cu", NVCCFLAGS = ["-DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_CPP"])
+env.Program("cpu_performance", cpu_obj)
+
+# TODO compile against THRUST_DEVICE_SYSTEM_OMP & THRUST_DEVICE_SYSTEM_TBB here
 

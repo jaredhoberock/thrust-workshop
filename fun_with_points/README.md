@@ -48,7 +48,7 @@ At a high level, the program looks like this:
       std::cout << std::endl;
     }
 
-Let's port this C++ program to run on the GPU using the [Thrust](http://thrust.github.com) algorithms library. Since the program is already broken down into a __high level description__ using functions with names like `generate_random_points` and `count_points_in_quadrants` that operate on __collections of data__, it'll be a breeze.
+Let's port this C++ program to run on the GPU using the [Thrust](http://thrust.github.com) parallel algorithms library. Since the program is already broken down into a __high level description__ using functions with names like `generate_random_points` and `count_points_in_quadrants` that operate on __collections of data__, it'll be a breeze.
 
 To follow along with this post in [`example.cu`](example.cu), type `scons example` into your command line to build the program, and `./example` to run it. You'll need to install [CUDA](https://developer.nvidia.com/cuda-downloads) to get NVIDIA's compiler to compile `.cu` files and [SCons](http://www.scons.org/), which is the build system we'll use.
 
@@ -77,11 +77,11 @@ Let's start out with taking a look at the inside of `generate_random_points`:
       }
     }
 
-It's basically a __sequential__ `for` loop that calls `rand` a bunch of times. That means that each iteration of this loop gets executed one at a time, in order. Not very parallel.
+It's basically a __sequential__ `for` loop that calls `rand` a bunch of times. That means that each iteration of this loop gets executed one at a time, in order.
 
-To make matters worse, we know that the reason you get a different number each time you call `rand` is because there's some secret __implicit shared state__ inside that gets updated with each call. If we called `rand` a bunch of times in parallel all at once, they might run into each other!
+To make matters worse, we know that the reason you get a different number each time you call `rand` is because there's some secret __implicit shared state__ inside that gets updated with each call. That means each iteration of our `loop` __depends__ on the previous.
 
-We'll need to __rethink our algorithm__ if we want to parallelize this operation.
+To parallelize this operation, we'll need to __rethink our algorithm__ to come up with a computation we can perform __independently__ of anything else going on. We'd best avoid state.
 
 Besides the stateful method used by `rand`, [it turns out](http://www.deshawresearch.com/resources_random123.html) another reasonable way to generate pseudorandom numbers is with a stateless integer hash, like this one right here:
 
@@ -299,11 +299,52 @@ Here's the whole function:
 Pointing it at the GPU
 ----------------------
 
-So we're all done, right? Not quite. Remember I said that we'd attack our porting problem in two parts: first by reorganizing our code into high-level parallel operations, and then by pointing those parallel operations at the GPU.
+So we're all done, right? Not quite. Our plan was to attack our porting problem in two parts: first by reorganizing our code into high-level parallel operations, and then by pointing those parallel operations at the GPU.
 
-Even though we've rewritten our program to use parallel Thrust algorithms, we're still not done yet. By default, whenever the inputs to Thrust algorithms come from things like `std::vector`, Thrust executes those algorithms sequentially on the CPU.
+By default, whenever the inputs to Thrust algorithms come from things like `std::vector`, Thrust executes those algorithms sequentially on the CPU.
 
 Remember how I said that describing our program as a __composition of high-level parallel algorithms__ gives Thrust a lot of __flexibility__ in deciding how to execute? Here's where we take advantage of that flexibility.
 
 Porting our program to run on the GPU is the easiest part. To point Thrust at the GPU, all we need to do is `s/std::vector/thrust::device_vector/` and we're set. `device_vector` is a special kind of vector container that sticks its data in memory that's easy for the GPU to access. Whenever a Thrust algorithm gets its input and output from a `device_vector`, that algorithm will __execute on the GPU in parallel__.
 
+Performance
+-----------
+
+Now it's time to find out if all our hard work was worth it by measuring the performance of our solution. Since we've built our solution using `thrust::device_vector`, it's easy to switch between building a program which targets the CPU or the GPU on the command line:
+
+    # build the cpu solution
+    $ scons cpu_performance
+    $ ./cpu_performance 
+    Warming up...
+    
+    Timing...
+    
+    20.5157 megapoints generated and counted per second.
+
+    # build the cpu solution
+    $ scons gpu_performance
+    $ ./gpu_performance 
+    Warming up...
+    
+    Timing...
+    
+    433.961 megapoints generated and counted per second.
+    
+For the GPU (an NVIDIA Tesla K20c) version, that's over 20 times the performance as the sequential version of the solution running on the CPU (an Intel Core i7 860). Not too bad!
+
+It's not really the fairest of comparisons -- the GPU is fairly recent and beefy while the CPU is getting a little long in the tooth -- but I hope the outcome has persuaded you that the general strategy of building parallel programs out of __high-level, reusable building blocks__ goes a long way towards ensuring parallel applications stay __performance portable and scalable__ across different architectures.
+
+It's true that a lower-level program which targeted individual threads, optimized for specific cache sizes, or programmed CUDA kernels directly might net us higher performance for either solution, but the cost of persuing such a path would be significant. Moreover, it's unlikely that the hard-won performance of a lower-level solution would be portable across generations of hardware within the same processor family, much less the vastly different architectures of the CPU and GPU.
+
+Since we've built our program out of __abstract parallel primitives__ which are agnostic to processor-specific idiosyncracies, we can be comfortable that our program will continue to scale as __parallel processor architectures grow wider__.
+
+Wrapping Up
+-----------
+
+TODO
+
+I hope I have persuaded you that building parallel programs out of high-level, abstract parallel algorithms goes a long way in 
+
+A recent and beefy GPU versus a few-years old middle of the road CPU. The CPU mode might have also fared better had it been parallelized (try that out yourself with [Thrust's multicore CPU backends](https://github.com/thrust/thrust/wiki/Device-Backends)).
+
+We also had the privilege of building our application from scratch rather than integrating it into a complex, existing legacy codebase.
