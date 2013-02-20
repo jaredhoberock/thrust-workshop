@@ -311,6 +311,8 @@ Remember how I said that describing our program as a __composition of high-level
 
 Porting our program to run on the GPU is the easiest part. To point Thrust at the GPU, all we need to do is `s/std::vector/thrust::device_vector/` and we're set. `device_vector` is a special kind of vector container that sticks its data in memory that's easy for the GPU to access. Whenever a Thrust algorithm gets its input and output from a `device_vector`, that algorithm will __execute on the GPU in parallel__.
 
+(If you're uninterested in GPUs, that's okay too -- [it's easy to target Thrust at multicore CPUs](https://github.com/thrust/thrust/wiki/Device-Backends)).
+
 Performance
 -----------
 
