@@ -314,7 +314,7 @@ Porting our program to run on the GPU is the easiest part. To point Thrust at th
 Performance
 -----------
 
-Now it's time to find out if all our hard work was worth it. ['performance.cu'](performance.cu) provides an instrumented version of the solution we can use for measuring its performance. Since we've built our solution using `thrust::device_vector`, it's easy to switch between building a program which targets the CPU or the GPU on the command line:
+Now it's time to find out if all our hard work was worth it. [`performance.cu`](performance.cu) provides an instrumented version of the solution we can use for measuring its performance. Since we've built our solution using `thrust::device_vector`, it's easy to switch between building a program which targets the CPU or the GPU on the command line:
 
     # build the cpu solution
     $ scons cpu_performance
