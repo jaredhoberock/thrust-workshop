@@ -17,7 +17,7 @@ template<typename Function>
     f();
   }
   cudaEventRecord(stop);
-  cudaThreadSynchronize();
+  cudaDeviceSynchronize();
 
   float msecs = 0;
   cudaEventElapsedTime(&msecs, start, stop);
@@ -44,7 +44,7 @@ template<typename Function, typename Arg1>
     f(arg1);
   }
   cudaEventRecord(stop);
-  cudaThreadSynchronize();
+  cudaDeviceSynchronize();
 
   float msecs = 0;
   cudaEventElapsedTime(&msecs, start, stop);
@@ -71,7 +71,7 @@ template<typename Function, typename Arg1, typename Arg2>
     f(arg1,arg2);
   }
   cudaEventRecord(stop);
-  cudaThreadSynchronize();
+  cudaDeviceSynchronize();
 
   float msecs = 0;
   cudaEventElapsedTime(&msecs, start, stop);
@@ -98,7 +98,7 @@ template<typename Function, typename Arg1, typename Arg2, typename Arg3>
     f(arg1,arg2,arg3);
   }
   cudaEventRecord(stop);
-  cudaThreadSynchronize();
+  cudaDeviceSynchronize();
 
   float msecs = 0;
   cudaEventElapsedTime(&msecs, start, stop);
@@ -125,7 +125,7 @@ template<typename Function, typename Arg1, typename Arg2, typename Arg3, typenam
     f(arg1,arg2,arg3,arg4);
   }
   cudaEventRecord(stop);
-  cudaThreadSynchronize();
+  cudaDeviceSynchronize();
 
   float msecs = 0;
   cudaEventElapsedTime(&msecs, start, stop);
@@ -152,7 +152,7 @@ template<typename Function, typename Arg1, typename Arg2, typename Arg3, typenam
     f(arg1,arg2,arg3,arg4,arg5);
   }
   cudaEventRecord(stop);
-  cudaThreadSynchronize();
+  cudaDeviceSynchronize();
 
   float msecs = 0;
   cudaEventElapsedTime(&msecs, start, stop);
@@ -179,7 +179,7 @@ template<typename Function, typename Arg1, typename Arg2, typename Arg3, typenam
     f(arg1,arg2,arg3,arg4,arg5,arg6);
   }
   cudaEventRecord(stop);
-  cudaThreadSynchronize();
+  cudaDeviceSynchronize();
 
   float msecs = 0;
   cudaEventElapsedTime(&msecs, start, stop);
@@ -206,7 +206,7 @@ template<typename Function, typename Arg1, typename Arg2, typename Arg3, typenam
     f(arg1,arg2,arg3,arg4,arg5,arg6,arg7);
   }
   cudaEventRecord(stop);
-  cudaThreadSynchronize();
+  cudaDeviceSynchronize();
 
   float msecs = 0;
   cudaEventElapsedTime(&msecs, start, stop);
