@@ -10,7 +10,7 @@ std::ostream &operator<<(std::ostream &os, float2 p)
 
 
 // TODO: annotate this function with __host__ __device__ so
-//       so that they are able to work with Thrust
+//       so that it is able to work with Thrust
 float2 operator+(float2 a, float2 b)
 {
   return make_float2(a.x + b.x, a.y + b.y);
