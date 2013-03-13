@@ -27,20 +27,6 @@ struct compare_tags
   }
 };
 
-struct bbox
-{
-  float xmin, xmax;
-  float ymin, ymax;
-
-  inline __host__ __device__
-  bbox() : xmin(FLT_MAX), xmax(-FLT_MAX), ymin(FLT_MAX), ymax(-FLT_MAX)
-  {}
-  
-  inline __host__ __device__
-  bbox(const float2 &p) : xmin(p.x), xmax(p.x), ymin(p.y), ymax(p.y)
-  {}
-};
-
 // Operator which merges two bounding boxes.
 struct merge_bboxes
 {
