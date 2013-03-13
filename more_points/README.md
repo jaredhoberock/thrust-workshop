@@ -34,7 +34,7 @@ At a high level, the program looks like this:
 
       std::vector<int> tags(num_points);
 
-      compute_tags(points, bounds, tags);
+      compute_tags(points, bounds, max_level, tags);
 
       sort_points_by_tag(points, tags);
 
@@ -188,13 +188,51 @@ The sequential code is pretty simple. It just associates with each point a tag:
 
     std::vector<int> tags(points.size());
 
-    for(int i = 0; i < points.size(); ++i)
+and computes them with the `compute_tags` function:
+
+    void compute_tags(const std::vector<float2> &points,
+                      const bbox &bounds,
+                      int max_level,
+                      std::vector<int> &tags)
     {
-      float2 p = points[i];
-      tags[i] - point_to_tag(p, bounds, max_level);
+      for(int i = 0; i < points.size(); ++i)
+      {
+        float2 p = points[i];
+        tags[i] - point_to_tag(p, bounds, max_level);
+      }
     }
 
 The `point_to_tag` computation takes a point `p`, the `bounds` of the entire collection of `points`, and the index of the tree's `max_level` and computes the point's spatial code. If you're interested in the details, you can peek inside [`util.h`](util.h) where it's defined.
+
+This operation looks a lot like the point classification problem from the [`fun_with_points`](../fun_with_points) exercise. We know that we can parallelize embarrassingly parallel operations like these with `thrust::transform`:
+
+    struct classify_point
+    {
+      bbox box;
+      int max_level;
+
+      classify_point(const bbox &bounds, int max_level) :
+        box(bounds),
+        max_level(max_level)
+      {}
+
+      inline __device__ __host__
+      int operator()(const float2 &p)
+      {
+        return point_to_tag(p, box, max_level);
+      }
+    };
+
+    void compute_tags(const std::vector<float2> &points,
+                      const bbox &bounds,
+                      std::vector<int> &tags)
+    {
+      thrust::transform(points.begin(), points.end(),
+                        tags.begin(),
+                        classify_point(bounds, max_level));
+    }
+
+The only thing we need to do is introduce the `classify_point` functor whose job it is to call the `point_to_tag` function.
 
 ## Sorting by Tag
 
