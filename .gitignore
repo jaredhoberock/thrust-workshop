@@ -1,1 +1,6 @@
+# Scons intermediate files
 .sconsign.dblite
+*.pyc
+
+# Generated files
+*.o
