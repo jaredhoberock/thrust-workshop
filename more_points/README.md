@@ -24,7 +24,7 @@ At a high level, the program looks like this:
     int main()
     {
       const size_t num_points = 10000000;
-      size_t num_tree_levels = XXX;
+      size_t max_level = XXX;
 
       std::vector<float2> points(num_points);
 
@@ -40,8 +40,10 @@ At a high level, the program looks like this:
 
       std::vector<int> nodes;
       std::vector<int2> leaves;
-      build_tree(tags, bounds, num_tree_levels, nodes, leaves);
+      build_tree(tags, bounds, max_level, nodes, leaves);
     }
+
+We'll describe what's going on with the `tags` later.
 
 Our tree data structure is just an array of (interior) nodes and a list of (terminal) leaves.
 
@@ -49,23 +51,23 @@ The `build_tree` function is itself composed of several steps, so let's take a l
 
     void build_tree(const std::vector<int> &tags,
                     const bbox &bounds,
-                    size_t num_tree_levels,
+                    size_t max_level,
                     std::vector<int> &nodes,
                     std::vector<int2> &leaves)
     {
       std::vector<int> active_nodes(1,0);
       
       // build the tree one level at a time, starting at the root
-      for(int level = 1; !active_nodes.empty() && level < num_tree_levels; ++level)
+      for(int level = 1; !active_nodes.empty() && level <= max_level; ++level)
       {
         // each node has four children since this is a quad tree
         std::vector<int> children(4 * active_nodes.size());
 
-        compute_child_tag_masks(active_nodes, level, num_tree_levels, children);
+        compute_child_tag_masks(active_nodes, level, max_level, children);
 
         std::vector<int> lower_bounds(children.size());
         std::vector<int> upper_bounds(children.size());
-        compute_child_bounds(tags, children, level, num_tree_levels, lower_bounds, upper_bounds);
+        compute_child_bounds(tags, children, level, max_level, lower_bounds, upper_bounds);
 
         // mark each child as either empty, an interior node, or a leaf
         std::vector<int> child_node_kind(children.size(), 0);
@@ -122,7 +124,7 @@ For our purposes, a `bbox` is just two points which specify the coordinates of t
 
 It's defined in [`util.h`](util.h) in the source.
 
-In order to compute a single box which is large enough to contain all of our points, we need to inspect them all and *reduce* them into a single value -- the box.
+In order to compute a single box which is large enough to contain all of our points, we need to inspect them all and __reduce__ them into a single value -- the box.
 
 Here's what the sequential code looks like:
 
@@ -139,9 +141,9 @@ Here's what the sequential code looks like:
       if(p.y > bounds.ymax) bounds.ymax = p.y;
     }
 
-We just loop through the points and make sure the box is large enough to contain each one. If the box isn't large enough along a particular dimension, we extend it such that it just contains the point.
+We just loop through the points and make sure the box is large enough to contain each one. If the box isn't large enough along a particular dimension, we extend it such that it is just large enough to contain the point.
 
-At first glance, it may seem difficult to parallelize this operation because each iteration incrementally builds off of the last one. In fact, it's possible to cast this operation as a *reduction*.
+At first glance, it may seem difficult to parallelize this operation because each iteration incrementally builds off of the last one. In fact, it's possible to cast this operation as a __reduction__.
 
 In the [`fun_with_points`](../fun_with_points) example, we used `thrust::reduce` to compute the average of a collection of points. Here, the result was the same type as the input -- the average of a collection of points is still a point.
 
@@ -170,5 +172,69 @@ Internally, the way the reduction will work is to create, for each point, a sing
       // we pass an empty bounding box for thrust::reduce's init parameter
       bbox empty;
       return thrust::reduce(points.begin(), points.end(), empty, merge_bboxes());
+    }
+
+## Linearizing the Points
+
+The next step in preparing our data for tree construction is to augment its representation. The basic idea behind the tree construction process is to pose it as a spatial sorting problem. But sorts are one dimensional and we have two dimensional data. What does it mean to sort 2D points?
+
+Since we want to organize our points spatially, we'd like a sorting solution which preserves spatial locality. In other words, we want points that are nearby in 2D to be near each other in the one dimensional `points` array.
+
+This is actually a whole lot easier than it sounds. The basic idea is to "tag" each point with its [index](http://en.wikipedia.org/wiki/Morton_code) along a [space-filling curve](http://en.wikipedia.org/wiki/Space_filling_curve).
+
+It turns out that points with nearby tags are also nearby in 2D! That means if we sort our collection of `points` by their `tags`, we'll order them in a way that encourages spatial locality which will be important to the tree building process later.
+
+The sequential code is pretty simple. It just associates with each point a tag:
+
+    std::vector<int> tags(points.size());
+
+    for(int i = 0; i < points.size(); ++i)
+    {
+      float2 p = points[i];
+      tags[i] - point_to_tag(p, bounds, max_level);
+    }
+
+The `point_to_tag` computation takes a point `p`, the `bounds` of the entire collection of `points`, and the index of the tree's `max_level` and computes the point's spatial code. If you're interested in the details, you can peek inside [`util.h`](util.h) where it's defined.
+
+## Sorting by Tag
+
+Now that each point has a spatial `tag`, we can organize them spatially just by sorting the `points` by their `tags`.
+
+The sequential CPU code does it this way:
+
+    struct compare_tags
+    {
+      template <typename Pair>
+      inline bool operator()(const Pair &p0, const Pair &p1) const
+      {
+        return p0.first < p1.first;
+      }
+    };
+
+    void sort_points_by_tag(std::vector<float2> &points, std::vector<int> &tags)
+    {
+      // introduce a temporary array of pairs for sorting purposes
+      std::vector<std::pair<int,int> > tag_index_pairs(num_points);
+      for(int i = 0; i < num_points; ++i)
+      {
+        tag_index_pairs[i].first = tags[i];
+        tag_index_pairs[i].second = i;
+      }
+
+      std::sort(tag_index_pairs.begin(), tag_index_pairs.end(), compare_tags());
+
+      // copy sorted data back into input arrays
+      for(int i = 0; i < num_points; ++i)
+      {
+        tags[i]    = tag_index_pairs[i].first;
+        indices[i] = tag_index_pairs[i].second;
+      }
+    }
+
+Which is a pretty roundabout way of coaxing a key-value sort out of `std::sort`. With Thrust we can do it in parallel with just a call to `thrust::sort_by_key`:
+
+    void sort_points_by_tag(std::vector<float2> &points, std::vector<int> &tags)
+    {
+      thrust::sort_by_key(tags.begin(), tags.end(), points.begin());
     }
 
