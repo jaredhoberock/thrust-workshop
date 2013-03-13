@@ -3,12 +3,6 @@
 #include <iostream>
 
 
-std::ostream &operator<<(std::ostream &os, float2 p)
-{
-  return os << "(" << p.x << ", " << p.y << ")";
-}
-
-
 // TODO: annotate this function with __host__ __device__ so
 //       so that it is able to work with Thrust
 float2 operator+(float2 a, float2 b)
@@ -80,6 +74,12 @@ void count_points_in_quadrants(std::vector<float2> &points, std::vector<int> &qu
     // increment the number of points in this quadrant
     counts_per_quadrant[q]++;
   }
+}
+
+
+std::ostream &operator<<(std::ostream &os, float2 p)
+{
+  return os << "(" << p.x << ", " << p.y << ")";
 }
 
 

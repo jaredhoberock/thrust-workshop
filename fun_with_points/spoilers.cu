@@ -8,7 +8,6 @@
 #include <thrust/iterator/discard_iterator.h>
 #include <cstdlib>
 #include <iostream>
-#include <cstdio>
 
 
 __host__ __device__
@@ -51,7 +50,10 @@ void generate_random_points(thrust::device_vector<float2> &points)
 float2 compute_centroid(const thrust::device_vector<float2> &points)
 {
   float2 init = make_float2(0,0);
+
+  // compute the sum
   float2 sum = thrust::reduce(points.begin(), points.end(), init); 
+  // divide the sum by the number of points
   return make_float2(sum.x / points.size(), sum.y / points.size());
 }
 
@@ -77,6 +79,7 @@ struct classify_point
 
 void classify_points_by_quadrant(const thrust::device_vector<float2> &points, float2 center, thrust::device_vector<int> &quadrants)
 {
+  // classify each point relative to the centroid
   thrust::transform(points.begin(), points.end(), quadrants.begin(), classify_point(center));
 }
 

@@ -1,0 +1,77 @@
+# How to get scons:
+#
+# On Debian-based distributions like Ubuntu:
+#   $ sudo apt-get install scons
+# On Redhat distributions:
+#   $ sudo yum install scons
+# On Windows:
+#   http://prdownloads.sourceforge.net/scons/scons-2.2.0-setup.exe
+# On OSX with HomeBrew:
+#   $ sudo brew install scons
+#
+# If you don't want to mess with scons, you can also build the programs on the command line:
+# $ nvcc -I. exercise.cu -o exercise
+# $ nvcc -I. spoilers.cu -o spoilers
+
+import os
+import platform
+
+Help("""
+Type: 'scons' to build everything.
+      'scons exercise' to build the exercise program.
+      'scons spoilers' to build the solution (spoilers!) program.
+      'scons cpu_performance' to build a program which measures the performance of the solution on the CPU.
+      'scons gpu_performance' to build a program which measures the performance of the solution on the GPU.
+""")
+
+# tell SCons about the NVIDIA compiler
+env = Environment(tools = ['default', 'nvcc'])
+
+if env['CXX'] == 'g++':
+  # when compiling with g++, link against the standard library
+  # we don't have to do this with cl.exe
+  env.Append(LIBS = ['stdc++'])
+
+# find the CUDA runtime and link against it
+# determine defaults
+if os.name == 'nt':
+  cuda_lib_path = 'C:/CUDA/lib'
+elif os.name == 'posix':
+  cuda_lib_path = '/usr/local/cuda/lib'
+else:
+  raise ValueError, 'Error: unknown OS.  Where is CUDA installed?'
+   
+if platform.machine()[-2:] == '64':
+  cuda_lib_path += '64'
+
+# override with environment variable if it exists
+if 'CUDA_LIB_PATH' in os.environ:
+  cuda_lib_path = os.path.abspath(os.environ['CUDA_LIB_PATH'])
+
+env.Append(LIBPATH = [cuda_lib_path])
+env.Append(LIBS = ['cudart'])
+
+# add the current directory to the #include path
+env.Append(CPPPATH = ".")
+
+# enable optimization
+if env['CXX'] == 'g++':
+  env.Append(CCFLAGS = ['-O3'])
+else:
+  env.Append(CCFLAGS = ['/x'])
+
+# build the exercise
+env.Program("exercise.cu")
+
+# build the solution
+env.Program("spoilers.cu")
+
+# build the performance programs
+gpu_obj = env.Object("gpu_performance", "performance.cu", NVCCFLAGS = ["-DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_CUDA"])
+env.Program("gpu_performance", gpu_obj)
+
+cpu_obj = env.Object("cpu_performance", "performance.cu", NVCCFLAGS = ["-DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_CPP"])
+env.Program("cpu_performance", cpu_obj)
+
+# TODO compile against THRUST_DEVICE_SYSTEM_OMP & THRUST_DEVICE_SYSTEM_TBB here
+
