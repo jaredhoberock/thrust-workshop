@@ -70,37 +70,7 @@ struct classify_point
   inline __device__ __host__
   int operator()(const float2 &p)
   {
-    // Encoding of the position of p, start with all bits set to 0
-    int tag = 0;
-
-    // Iteratively split the space to find p
-    for (int level = 1 ; level <= max_level ; ++level)
-    {
-      // Classify in x-direction
-      float xmid = 0.5f * (box.xmin + box.xmax);
-      int x_hi_half = (p.x < xmid) ? 0 : 1;
-
-      // Push the bit into the tag as we build it
-      tag |= x_hi_half;
-      tag <<= 1;
-
-      // Classify in y-direction
-      float ymid = 0.5f * (box.ymin + box.ymax);
-      int y_hi_half = (p.y < ymid) ? 0 : 1;
-
-      // Push the bit into the tag as we build it
-      tag |= y_hi_half;
-      tag <<= 1;
-
-      // Shrink the bounding box, still encapsulating the point
-      box.xmin = (x_hi_half) ? xmid : box.xmin;
-      box.xmax = (x_hi_half) ? box.xmax : xmid;
-      box.ymin = (y_hi_half) ? ymid : box.ymin;
-      box.ymax = (y_hi_half) ? box.ymax : ymid;
-    }
-    // Unshift the last
-    tag >>= 1;
-    return tag;
+    return point_to_tag(p, box, max_level);
   }
 };
 

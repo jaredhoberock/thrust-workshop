@@ -62,6 +62,41 @@ struct bbox
   {}
 };
 
+__host__ __device__
+int point_to_tag(const float2 &p, bbox box, int max_level)
+{
+  int result = 0;
+  
+  for (int level = 1 ; level <= max_level ; ++level)
+  {
+    // Classify in x-direction
+    float xmid = 0.5f * (box.xmin + box.xmax);
+    int x_hi_half = (p.x < xmid) ? 0 : 1;
+  
+    // Push the bit into the result as we build it
+    result |= x_hi_half;
+    result <<= 1;
+  
+    // Classify in y-direction
+    float ymid = 0.5f * (box.ymin + box.ymax);
+    int y_hi_half = (p.y < ymid) ? 0 : 1;
+  
+    // Push the bit into the result as we build it
+    result |= y_hi_half;
+    result <<= 1;
+  
+    // Shrink the bounding box, still encapsulating the point
+    box.xmin = (x_hi_half) ? xmid : box.xmin;
+    box.xmax = (x_hi_half) ? box.xmax : xmid;
+    box.ymin = (y_hi_half) ? ymid : box.ymin;
+    box.ymax = (y_hi_half) ? box.ymax : ymid;
+  }
+  // Unshift the last
+  result >>= 1;
+
+  return result;
+}
+
 std::ostream &operator<<(std::ostream &os, float2 p)
 {
   return os << std::fixed << "(" <<
