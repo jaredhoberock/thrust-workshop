@@ -242,7 +242,7 @@ void build_tree(const std::vector<int> &tags,
     std::vector<int> level_leaves(markers.size());
 
     // Enumerate nodes at this level
-    std::cout << "TODO: move the node emuration to the GPU using thrust::exclusive_scan\n";
+    std::cout << "TODO: move the node emuration to the GPU using thrust::transform_exclusive_scan\n";
     for (int i = 0, prefix_sum = 0 ; i < markers.size() ; ++i)
     {
       level_nodes[i] = prefix_sum;
@@ -254,7 +254,7 @@ void build_tree(const std::vector<int> &tags,
     int num_level_nodes = level_nodes.back() + (markers.back() == NODE ? 1 : 0);
 
     // Enumerate leaves at this level
-    std::cout << "TODO: move the leaf emuration to the GPU using thrust::exclusive_scan\n";
+    std::cout << "TODO: move the leaf emuration to the GPU using thrust::transform_exclusive_scan\n";
     for (int i = 0, prefix_sum = 0 ; i < markers.size() ; ++i)
     {
       level_leaves[i] = prefix_sum;
