@@ -4,12 +4,12 @@ XXX we can even build spatial data structures like trees in parallel!
 
 # More Points
 
-XXX let's build upon the [fun_with_points](../fun_with_points) example.
-
-In this post, we'll become familiar with algorithms such as `exclusive_scan`
-and `lower_bound` to build sophisticated data structures in parallel. As
-always, we'll structure the code such that it can run anywhere we have parallel
-resources.
+Now that we've had our [fun with points](../fun_with_points), it's time to get
+serious. Let's use Thrust to get some work done by organizing our points into a
+spatial data structure. In this post, we'll become familiar with algorithms
+such as `exclusive_scan` and `lower_bound` to build sophisticated data
+structures in parallel. Just like before, we'll structure the code such that it
+can run anywhere we have parallel resources.
 
 In [exercise.cu](exercise.cu), we have a C++ program that generates some random
 two-dimensional points, finds the bounding box of those points, and then
