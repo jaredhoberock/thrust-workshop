@@ -25,6 +25,7 @@ At a high level, the program looks like this:
     {
       const size_t num_points = 10000000;
       size_t max_level = XXX;
+      size_t threshold = YYY;
 
       std::vector<float2> points(num_points);
 
@@ -36,11 +37,11 @@ At a high level, the program looks like this:
 
       compute_tags(points, bounds, max_level, tags);
 
-      sort_points_by_tag(points, tags);
+      sort_points_by_tag(tags, indices);
 
       std::vector<int> nodes;
       std::vector<int2> leaves;
-      build_tree(tags, bounds, max_level, nodes, leaves);
+      build_tree(tags, bounds, max_level, threshold, nodes, leaves);
     }
 
 We'll describe what's going on with the `tags` later.
@@ -52,6 +53,7 @@ The `build_tree` function is itself composed of several steps, so let's take a l
     void build_tree(const std::vector<int> &tags,
                     const bbox &bounds,
                     size_t max_level,
+                    size_t threshold,
                     std::vector<int> &nodes,
                     std::vector<int2> &leaves)
     {
