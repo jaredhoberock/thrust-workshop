@@ -81,6 +81,24 @@ void sort_points_by_tag(std::vector<int> &tags, std::vector<int> &indices)
 }
 
 
+void compute_child_tag_masks(const std::vector<int> &active_nodes,
+                             int level,
+                             size_t max_level,
+                             std::vector<int> &children)
+{
+  std::cout << "TODO: compute child masks on GPU using thrust::transform\n";
+  int shift = (max_level - level) * 2;
+  for (int i = 0 ; i < active_nodes.size() ; ++i)
+  {
+    int tag = active_nodes[i];
+    children[4*i+0] = tag | (0 << shift);
+    children[4*i+1] = tag | (1 << shift);
+    children[4*i+2] = tag | (2 << shift);
+    children[4*i+3] = tag | (3 << shift);
+  }
+}
+
+
 void build_tree(const std::vector<int> &tags,
                 const bbox &bounds,
                 size_t max_level,
@@ -118,24 +136,14 @@ void build_tree(const std::vector<int> &tags,
     std::cout << std::endl;
 
     /******************************************
-     * 6. Calculate children                  *
+     * 1. Calculate children                  *
      ******************************************/
 
     // New children: 4 quadrants per active node = 4 children
     std::cout << "TODO: move these children to the GPU using thrust::device_vector\n";
     std::vector<int> children(4*num_active_nodes);
 
-    // For each active node, generate the tag mask for each of its 4 children
-    std::cout << "TODO: compute child masks on GPU using thrust::transform\n";
-    int shift = (max_level - level) * 2;
-    for (int i = 0 ; i < num_active_nodes ; ++i)
-    {
-      int tag = active_nodes[i];
-      children[4*i+0] = tag | (0 << shift);
-      children[4*i+1] = tag | (1 << shift);
-      children[4*i+2] = tag | (2 << shift);
-      children[4*i+3] = tag | (3 << shift);
-    }
+    compute_child_tag_masks(active_nodes, level, max_level, children);
 
     std::cout << "Children:\n      ";
     for (int i = 1 ; i <= max_level ; ++i)
@@ -152,7 +160,7 @@ void build_tree(const std::vector<int> &tags,
     std::cout << std::endl;
 
     /******************************************
-     * 7. Determine interval for each child   *
+     * 2. Determine interval for each child   *
      ******************************************/
 
     // For each child we need interval bounds
@@ -184,7 +192,7 @@ void build_tree(const std::vector<int> &tags,
     std::cout << std::endl;
 
     /******************************************
-     * 8. Mark each child as empty/leaf/node  *
+     * 3. Mark each child as empty/leaf/node  *
      ******************************************/
 
     // Mark each child as either empty, a node, or a leaf
@@ -233,7 +241,7 @@ void build_tree(const std::vector<int> &tags,
     std::cout << std::endl;
 
     /******************************************
-     * 9. Enumerate nodes and leaves          *
+     * 4. Enumerate nodes and leaves          *
      ******************************************/
 
     // Enumerate the nodes and leaves at this level
@@ -286,7 +294,7 @@ void build_tree(const std::vector<int> &tags,
     std::cout << std::endl;
 
     /******************************************
-     * 10. Add the children to the node list  *
+     * 5. Add the children to the node list   *
      ******************************************/
 
     // Add these children to the list of nodes
@@ -315,7 +323,7 @@ void build_tree(const std::vector<int> &tags,
     print_nodes(nodes);
 
     /******************************************
-     * 11. Add the leaves to the leaf list    *
+     * 6. Add the leaves to the leaf list     *
      ******************************************/
 
     // Add child leaves to the list of leaves
@@ -336,7 +344,7 @@ void build_tree(const std::vector<int> &tags,
     print_leaves(leaves);
 
     /******************************************
-     * 12. Set the nodes for the next level   *
+     * 7. Set the nodes for the next level    *
      ******************************************/
     
     // Set active nodes for the next level to be all the childs nodes from this level

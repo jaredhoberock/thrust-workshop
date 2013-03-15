@@ -178,6 +178,20 @@ struct make_leaf
   }
 };
 
+
+void compute_child_tag_masks(const thrust::device_vector<int> &active_nodes,
+                             int level,
+                             size_t max_level,
+                             thrust::device_vector<int> &children)
+{
+  // For each active node, generate the tag mask for each of its 4 children
+  thrust::transform(thrust::make_counting_iterator<int>(0),
+                    thrust::make_counting_iterator<int>(children.size()),
+                    children.begin(),
+                    expand_active_nodes(level, max_level, thrust::raw_pointer_cast(&active_nodes.front())));
+}
+
+
 void build_tree(const thrust::device_vector<int> &tags,
                 const bbox &bounds,
                 size_t max_level,
@@ -196,20 +210,16 @@ void build_tree(const thrust::device_vector<int> &tags,
     int num_active_nodes = static_cast<int>(active_nodes.size());
 
     /******************************************
-     * 6. Calculate children                  *
+     * 1. Calculate children                  *
      ******************************************/
 
     // New children: 4 quadrants per active node = 4 children
     thrust::device_vector<int> children(4*num_active_nodes);
 
-    // For each active node, generate the tag mask for each of its 4 children
-    thrust::transform(thrust::make_counting_iterator(0),
-                      thrust::make_counting_iterator(4*num_active_nodes),
-                      children.begin(),
-                      expand_active_nodes(level, max_level, thrust::raw_pointer_cast(&active_nodes.front())));
+    compute_child_tag_masks(active_nodes, level, max_level, children);
 
     /******************************************
-     * 7. Determine interval for each child   *
+     * 2. Determine interval for each child   *
      ******************************************/
 
     // For each child we need interval bounds
@@ -231,7 +241,7 @@ void build_tree(const thrust::device_vector<int> &tags,
                         upper_bounds.begin());
 
     /******************************************
-     * 8. Mark each child as empty/leaf/node  *
+     * 3. Mark each child as empty/leaf/node  *
      ******************************************/
 
     // Mark each child as either empty, a node, or a leaf
@@ -245,7 +255,7 @@ void build_tree(const thrust::device_vector<int> &tags,
                       mark_nodes(threshold, level == max_level));
 
     /******************************************
-     * 9. Enumerate nodes and leaves          *
+     * 4. Enumerate nodes and leaves          *
      ******************************************/
 
     // Enumerate the nodes and leaves at this level
@@ -271,7 +281,7 @@ void build_tree(const thrust::device_vector<int> &tags,
     int num_level_leaves = level_leaves.back() + (markers.back() == LEAF ? 1 : 0);
 
     /******************************************
-     * 10. Add the children to the node list  *
+     * 5. Add the children to the node list   *
      ******************************************/
 
     // Add these children to the list of nodes
@@ -290,7 +300,7 @@ void build_tree(const thrust::device_vector<int> &tags,
     num_nodes += 4 * num_active_nodes;
 
     /******************************************
-     * 11. Add the leaves to the leaf list    *
+     * 6. Add the leaves to the leaf list     *
      ******************************************/
 
     // Add child leaves to the list of leaves
@@ -312,7 +322,7 @@ void build_tree(const thrust::device_vector<int> &tags,
     num_leaves += num_level_leaves;
 
     /******************************************
-     * 12. Set the nodes for the next level   *
+     * 7. Set the nodes for the next level    *
      ******************************************/
     
     // Set active nodes for the next level to be all the childs nodes from this level
