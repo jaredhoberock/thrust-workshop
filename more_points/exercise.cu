@@ -98,6 +98,26 @@ void compute_child_tag_masks(const std::vector<int> &active_nodes,
 }
 
 
+void find_child_bounds(const std::vector<int> &tags,
+                       const std::vector<int> &children,
+                       int level,
+                       size_t max_level,
+                       std::vector<int> &lower_bounds,
+                       std::vector<int> &upper_bounds)
+{
+  std::cout << "TODO: calculate bounds on the GPU using thrust::lower_bound and thrust::upper_bound\n";
+  int length = (1 << (max_level - level) * 2) - 1;
+  for (int i = 0 ; i < children.size() ; ++i)
+  {
+    lower_bounds[i] = (int)std::distance(tags.begin(),
+                              std::lower_bound(tags.begin(), tags.end(), children[i]));
+    
+    upper_bounds[i] = (int)std::distance(tags.begin(),
+                              std::upper_bound(tags.begin(), tags.end(), children[i] + length));
+  }
+}
+
+
 void build_tree(const std::vector<int> &tags,
                 const bbox &bounds,
                 size_t max_level,
@@ -168,16 +188,7 @@ void build_tree(const std::vector<int> &tags,
     std::vector<int> upper_bounds(children.size());
 
     // Locate lower and upper bounds for points in each quadrant
-    std::cout << "TODO: calculate bounds on the GPU using thrust::lower_bound and thrust::upper_bound\n";
-    int length = (1 << (max_level - level) * 2) - 1;
-    for (int i = 0 ; i < children.size() ; ++i)
-    {
-      lower_bounds[i] = (int)std::distance(tags.begin(),
-                                std::lower_bound(tags.begin(), tags.end(), children[i]));
-      
-      upper_bounds[i] = (int)std::distance(tags.begin(),
-                                std::upper_bound(tags.begin(), tags.end(), children[i] + length));
-    }
+    find_child_bounds(tags, children, level, max_level, lower_bounds, upper_bounds);
 
     std::cout << "Child bounds:\n      [ lower upper count ]\n";
     for (int i = 0 ; i < children.size() ; ++i)

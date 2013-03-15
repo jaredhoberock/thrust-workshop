@@ -95,14 +95,6 @@ struct expand_active_nodes
   }
 };
 
-struct add
-{
-  typedef int result_type;
-  int val;
-  add(int v) : val(v) {}
-  inline __device__ __host__ int operator()(int x) const { return x+val-1; }
-};
-
 struct mark_nodes
 {
   int threshold;
@@ -192,6 +184,32 @@ void compute_child_tag_masks(const thrust::device_vector<int> &active_nodes,
 }
 
 
+void find_child_bounds(const thrust::device_vector<int> &tags,
+                       const thrust::device_vector<int> &children,
+                       int level,
+                       size_t max_level,
+                       thrust::device_vector<int> &lower_bounds,
+                       thrust::device_vector<int> &upper_bounds)
+{
+  // Locate lower and upper bounds for points in each quadrant
+  thrust::lower_bound(tags.begin(),
+                      tags.end(),
+                      children.begin(),
+                      children.end(),
+                      lower_bounds.begin());
+  
+  int length = (1 << (max_level - level) * 2) - 1;
+
+  using namespace thrust::placeholders;
+
+  thrust::upper_bound(tags.begin(),
+                      tags.end(),
+                      thrust::make_transform_iterator(children.begin(), _1 + length),
+                      thrust::make_transform_iterator(children.end(), _1 + length),
+                      upper_bounds.begin());
+}
+
+
 void build_tree(const thrust::device_vector<int> &tags,
                 const bbox &bounds,
                 size_t max_level,
@@ -226,19 +244,7 @@ void build_tree(const thrust::device_vector<int> &tags,
     thrust::device_vector<int> lower_bounds(children.size());
     thrust::device_vector<int> upper_bounds(children.size());
 
-    // Locate lower and upper bounds for points in each quadrant
-    thrust::lower_bound(tags.begin(),
-                        tags.end(),
-                        children.begin(),
-                        children.end(),
-                        lower_bounds.begin());
-
-    add add_step(1 << 2*(max_level-level));
-    thrust::upper_bound(tags.begin(),
-                        tags.end(),
-                        thrust::make_transform_iterator(children.begin(), add_step),
-                        thrust::make_transform_iterator(children.end(), add_step),
-                        upper_bounds.begin());
+    find_child_bounds(tags, children, level, max_level, lower_bounds, upper_bounds);
 
     /******************************************
      * 3. Mark each child as empty/leaf/node  *
