@@ -17,6 +17,13 @@ int get_leaf_id(int offset) { return 0x80000000 | offset; }
 inline __device__ __host__
 int get_leaf_offset(int id) { return 0x80000000 ^ id; }
 
+inline __device__ __host__
+int child_tag_mask(int tag, int which_child, int level, int max_level)
+{
+  int shift = (max_level - level) * 2;
+  return tag | (which_child << shift);
+}
+
 template <int CODE>
 struct is_a
 {

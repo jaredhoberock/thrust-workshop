@@ -87,14 +87,13 @@ void compute_child_tag_masks(const std::vector<int> &active_nodes,
                              std::vector<int> &children)
 {
   std::cout << "TODO: compute child masks on GPU using thrust::transform\n";
-  int shift = (max_level - level) * 2;
   for (int i = 0 ; i < active_nodes.size() ; ++i)
   {
     int tag = active_nodes[i];
-    children[4*i+0] = tag | (0 << shift);
-    children[4*i+1] = tag | (1 << shift);
-    children[4*i+2] = tag | (2 << shift);
-    children[4*i+3] = tag | (3 << shift);
+    children[4*i+0] = child_tag_mask(tag, 0, level, max_level);
+    children[4*i+1] = child_tag_mask(tag, 1, level, max_level);
+    children[4*i+2] = child_tag_mask(tag, 2, level, max_level);
+    children[4*i+3] = child_tag_mask(tag, 3, level, max_level);
   }
 }
 

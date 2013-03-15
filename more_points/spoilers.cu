@@ -87,8 +87,8 @@ struct expand_active_nodes
   int operator()(int idx) const
   {
     int tag = nodes[idx/4];
-    int mask = (idx&3) << (2*(max_level-level));
-    return tag | mask;
+    int which_child = (idx&3);
+    return child_tag_mask(tag, which_child, level, max_level);
   }
 };
 
