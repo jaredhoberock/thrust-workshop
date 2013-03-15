@@ -79,9 +79,9 @@ void sort_points_by_tag(thrust::device_vector<int> &tags, thrust::device_vector<
 struct expand_active_nodes
 {
   int level, max_level;
-  const int *nodes;
+  thrust::device_ptr<const int> nodes;
   
-  expand_active_nodes(int lvl, int max_lvl, const int *nodes) : level(lvl), max_level(max_lvl), nodes(nodes) {}
+  expand_active_nodes(int lvl, int max_lvl, thrust::device_ptr<const int> nodes) : level(lvl), max_level(max_lvl), nodes(nodes) {}
   
   inline __device__ __host__
   int operator()(int idx) const
@@ -185,7 +185,7 @@ void compute_child_tag_masks(const thrust::device_vector<int> &active_nodes,
   thrust::transform(thrust::make_counting_iterator<int>(0),
                     thrust::make_counting_iterator<int>(children.size()),
                     children.begin(),
-                    expand_active_nodes(level, max_level, thrust::raw_pointer_cast(&active_nodes.front())));
+                    expand_active_nodes(level, max_level, active_nodes.data()));
 }
 
 
