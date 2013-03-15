@@ -24,6 +24,7 @@ enum { NODE = 1, LEAF = 2, EMPTY = 4 };
 //   int get_empty_id();
 //   int get_leaf_id(int offset);
 //   int get_leaf_offset(int id);
+//   int child_tag_mask(int tag, int which_child, int level, int max_level);
 
 // Operator which merges two bounding boxes.
 struct merge_bboxes
