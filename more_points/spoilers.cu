@@ -2,6 +2,7 @@
 #include <thrust/tabulate.h>
 #include <thrust/random.h>
 #include <thrust/transform.h>
+#include <thrust/transform_scan.h>
 #include <thrust/sort.h>
 #include <thrust/reduce.h>
 #include <thrust/binary_search.h>
@@ -15,14 +16,14 @@
 // Markers
 enum { NODE = 1, LEAF = 2, EMPTY = 4 };
 
-struct compare_tags
-{
-  template <typename pair_type>
-  inline bool operator()(const pair_type &p0, const pair_type &p1) const
-  {
-    return p0.first < p1.first;
-  }
-};
+// Utility functions to encode leaves and children in single int
+// are defined in util.h:
+//   bool is_empty(int id);
+//   bool is_node(int id);
+//   bool is_leaf(int id);
+//   int get_empty_id();
+//   int get_leaf_id(int offset);
+//   int get_leaf_offset(int id);
 
 // Operator which merges two bounding boxes.
 struct merge_bboxes
@@ -39,37 +40,41 @@ struct merge_bboxes
   }
 };
 
-// Utility functions to encode leaves and children in single int
-// are defined in util.h:
-//   bool is_empty(int id);
-//   bool is_node(int id);
-//   bool is_leaf(int id);
-//   int get_empty_id();
-//   int get_leaf_id(int offset);
-//   int get_leaf_offset(int id);
+bbox compute_bounding_box(const thrust::device_vector<float2> &points)
+{
+  return thrust::reduce(points.begin(), points.end(), bbox(), merge_bboxes());
+}
+
 
 // Classify a point with respect to the bounding box.
 struct classify_point
 {
-  // Bounding box, updated during the computation for each point
   bbox box;
-
-  // Max number of levels
   int max_level;
 
   // Create the classifier
-  classify_point(const bbox &bounds, int max_level) :
-    box(bounds),
-    max_level(max_level)
-  {}
+  classify_point(const bbox &b, int lvl) : box(b), max_level(lvl) {}
 
   // Classify a point
   inline __device__ __host__
-  int operator()(const float2 &p)
-  {
-    return point_to_tag(p, box, max_level);
-  }
+  int operator()(const float2 &p) { return point_to_tag(p, box, max_level); }
 };
+
+void compute_tags(const thrust::device_vector<float2> &points, const bbox &bounds, int max_level, thrust::device_vector<int> &tags)
+{
+  thrust::transform(points.begin(), 
+                    points.end(), 
+                    tags.begin(), 
+                    classify_point(bounds, max_level));
+}
+
+
+void sort_points_by_tag(thrust::device_vector<int> &tags, thrust::device_vector<int> &indices)
+{
+  thrust::sequence(indices.begin(), indices.end());
+  thrust::sort_by_key(tags.begin(), tags.end(), indices.begin());
+}
+
 
 struct expand_active_nodes
 {
@@ -170,112 +175,13 @@ struct make_leaf
   }
 };
 
-int main()
+void build_tree(const thrust::device_vector<int> &tags,
+                const bbox &bounds,
+                size_t max_level,
+                int threshold,
+                thrust::device_vector<int> &nodes,
+                thrust::device_vector<int2> &leaves)
 {
-  const size_t num_points = 12;
-  const int threshold = 2; // A node with fewer than threshold points is a leaf.
-  const int max_level = 3;
-
-  thrust::device_vector<float2> points(num_points);
-
-  /******************************************
-   * 1. Generate points                     *
-   ******************************************/
-
-  // Generate random points using Thrust
-  thrust::tabulate(points.begin(), points.end(), random_point());
-
-  std::cout << "Points:\n";
-  for (int i = 0 ; i < points.size() ; ++i)
-  {
-    std::cout << std::setw(4) << i << " " << points[i] << std::endl;
-  }
-  std::cout << std::endl;
-
-  /******************************************
-   * 2. Compute bounding box                *
-   ******************************************/
-
-  bbox bounds = thrust::reduce(points.begin(),
-                               points.end(),
-                               bbox(),
-                               merge_bboxes());
-
-  float xmid = 0.5f * (bounds.xmin + bounds.xmax);
-  float ymid = 0.5f * (bounds.ymin + bounds.ymax);
-  std::cout << "Bounding box:\n";
-  std::cout << "   min: " << make_float2(bounds.xmin, bounds.ymin) << std::endl;
-  std::cout << "   mid: " << make_float2(xmid, ymid) << std::endl;
-  std::cout << "   max: " << make_float2(bounds.xmax, bounds.ymax) << std::endl;
-  std::cout << std::endl;
-
-  /******************************************
-   * 3. Classify points                     *
-   ******************************************/
-
-  thrust::device_vector<int> tags(num_points);
-  thrust::transform(points.begin(), 
-                    points.end(), 
-                    tags.begin(), 
-                    classify_point(bounds, max_level));
-
-  std::cout << "Tags:                       ";
-  for (int level = 1 ; level <= max_level ; ++level)
-  {
-    std::cout << std::setw(3) << std::left << level;
-  }
-  std::cout << "\n                            ";
-  for (int level = 1 ; level <= max_level ; ++level)
-  {
-    std::cout << "xy ";
-  }
-  std::cout << std::right << std::endl;
-  for (int i = 0 ; i < points.size() ; ++i)
-  {
-    int tag = tags[i];
-    std::cout << std::setw(4) << i << " " << points[i] << ":  ";
-    print_tag(tags[i], max_level);
-    std::cout << std::endl;
-  }
-  std::cout << std::endl;
-  
-  /******************************************
-   * 4. Sort according to classification    *
-   ******************************************/
-
-  thrust::device_vector<int> indices(num_points);
-
-  // Now that we have the geometric information, we can sort the
-  // points accordingly.
-  thrust::sequence(indices.begin(), indices.end());
-  thrust::sort_by_key(tags.begin(), tags.end(), indices.begin());
-
-  std::cout << "Sorted tags:                ";
-  for (int level = 1 ; level <= max_level ; ++level)
-  {
-    std::cout << std::setw(3) << std::left << level;
-  }
-  std::cout << "\n                            ";
-  for (int level = 1 ; level <= max_level ; ++level)
-  {
-    std::cout << "xy ";
-  }
-  std::cout << std::right << std::endl;
-  for (int i = 0 ; i < points.size() ; ++i)
-  {
-    int tag = tags[i];
-    std::cout << std::setw(4) << i << " " << points[i] << ":  ";
-    print_tag(tags[i], max_level);
-    std::cout << "  original index " << std::setw(4) << indices[i] << std::endl;
-  }
-  std::cout << std::endl;
-
-  /******************************************
-   * 5. Build the tree                      *
-   ******************************************/
-
-  thrust::device_vector<int> nodes;
-  thrust::device_vector<int2> leaves;
   thrust::device_vector<int> active_nodes(1,0);
 
   int num_nodes = 0, num_leaves = 0;
@@ -410,15 +316,21 @@ int main()
     thrust::device_vector<int> level_leaves(markers.size());
 
     // Enumerate nodes at this level
-    thrust::exclusive_scan(thrust::make_transform_iterator(markers.begin(), is_a<NODE>()), 
-                           thrust::make_transform_iterator(markers.end(), is_a<NODE>()),
-                           level_nodes.begin());
+    thrust::transform_exclusive_scan(markers.begin(), 
+                                     markers.end(), 
+                                     level_nodes.begin(), 
+                                     is_a<NODE>(), 
+                                     0, 
+                                     thrust::plus<int>());
     int num_level_nodes = level_nodes.back() + (markers.back() == NODE ? 1 : 0);
 
     // Enumerate leaves at this level
-    thrust::exclusive_scan(thrust::make_transform_iterator(markers.begin(), is_a<LEAF>()),
-                           thrust::make_transform_iterator(markers.end(), is_a<LEAF>()), 
-                           level_leaves.begin());
+    thrust::transform_exclusive_scan(markers.begin(), 
+                                     markers.end(), 
+                                     level_leaves.begin(), 
+                                     is_a<LEAF>(), 
+                                     0, 
+                                     thrust::plus<int>());
     int num_level_leaves = level_leaves.back() + (markers.back() == LEAF ? 1 : 0);
 
     std::cout << "Node/leaf enumeration:\n      [ nodeid leafid ]\n";
@@ -468,7 +380,6 @@ int main()
 
     // Add child leaves to the list of leaves
     leaves.resize(num_leaves + num_level_leaves);
-
     thrust::scatter_if(thrust::make_transform_iterator(
                            thrust::make_zip_iterator(
                                thrust::make_tuple(lower_bounds.begin(), upper_bounds.begin())),
@@ -503,6 +414,110 @@ int main()
     // Update the number of active nodes.
     num_active_nodes = num_level_nodes;
   }
+}
+
+int main()
+{
+  const size_t num_points = 12;
+  const int threshold = 2; // A node with fewer than threshold points is a leaf.
+  const int max_level = 3;
+
+  thrust::device_vector<float2> points(num_points);
+
+  /******************************************
+   * 1. Generate points                     *
+   ******************************************/
+
+  // Generate random points using Thrust
+  thrust::tabulate(points.begin(), points.end(), random_point());
+
+  std::cout << "Points:\n";
+  for (int i = 0 ; i < points.size() ; ++i)
+  {
+    std::cout << std::setw(4) << i << " " << points[i] << std::endl;
+  }
+  std::cout << std::endl;
+
+  /******************************************
+   * 2. Compute bounding box                *
+   ******************************************/
+
+  bbox bounds = compute_bounding_box(points);
+
+  float xmid = 0.5f * (bounds.xmin + bounds.xmax);
+  float ymid = 0.5f * (bounds.ymin + bounds.ymax);
+  std::cout << "Bounding box:\n";
+  std::cout << "   min: " << make_float2(bounds.xmin, bounds.ymin) << std::endl;
+  std::cout << "   mid: " << make_float2(xmid, ymid) << std::endl;
+  std::cout << "   max: " << make_float2(bounds.xmax, bounds.ymax) << std::endl;
+  std::cout << std::endl;
+
+  /******************************************
+   * 3. Classify points                     *
+   ******************************************/
+
+  thrust::device_vector<int> tags(num_points);
+  
+  compute_tags(points, bounds, max_level, tags);
+
+  std::cout << "Tags:                       ";
+  for (int level = 1 ; level <= max_level ; ++level)
+  {
+    std::cout << std::setw(3) << std::left << level;
+  }
+  std::cout << "\n                            ";
+  for (int level = 1 ; level <= max_level ; ++level)
+  {
+    std::cout << "xy ";
+  }
+  std::cout << std::right << std::endl;
+  for (int i = 0 ; i < points.size() ; ++i)
+  {
+    int tag = tags[i];
+    std::cout << std::setw(4) << i << " " << points[i] << ":  ";
+    print_tag(tags[i], max_level);
+    std::cout << std::endl;
+  }
+  std::cout << std::endl;
+  
+  /******************************************
+   * 4. Sort according to classification    *
+   ******************************************/
+
+  thrust::device_vector<int> indices(num_points);
+
+  // Now that we have the geometric information, we can sort the
+  // points accordingly.
+  sort_points_by_tag(tags, indices);
+
+  std::cout << "Sorted tags:                ";
+  for (int level = 1 ; level <= max_level ; ++level)
+  {
+    std::cout << std::setw(3) << std::left << level;
+  }
+  std::cout << "\n                            ";
+  for (int level = 1 ; level <= max_level ; ++level)
+  {
+    std::cout << "xy ";
+  }
+  std::cout << std::right << std::endl;
+  for (int i = 0 ; i < points.size() ; ++i)
+  {
+    int tag = tags[i];
+    std::cout << std::setw(4) << i << " " << points[i] << ":  ";
+    print_tag(tags[i], max_level);
+    std::cout << "  original index " << std::setw(4) << indices[i] << std::endl;
+  }
+  std::cout << std::endl;
+
+  /******************************************
+   * 5. Build the tree                      *
+   ******************************************/
+
+  thrust::device_vector<int> nodes;
+  thrust::device_vector<int2> leaves;
+  
+  build_tree(tags, bounds, max_level, threshold, nodes, leaves);
 
   return 0;
 }
