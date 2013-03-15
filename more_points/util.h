@@ -40,11 +40,13 @@ struct random_point
     return x;
   }
 
-  __host__ __device__ float2 operator()(unsigned int x)
+  __host__ __device__ float2 operator()(unsigned int i)
   {
-    thrust::default_random_engine rng(hash(x));
+    thrust::default_random_engine rng(hash(i));
     thrust::random::uniform_real_distribution<float> dist;
-    return make_float2(dist(rng), dist(rng));
+    float x = dist(rng);
+    float y = dist(rng);
+    return make_float2(x, y);
   }
 };
 

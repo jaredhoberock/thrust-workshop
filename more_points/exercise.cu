@@ -15,32 +15,6 @@
 // Markers
 enum { NODE = 1, LEAF = 2, EMPTY = 4 };
 
-struct compare_tags
-{
-  template <typename pair_type>
-  inline bool operator()(const pair_type &p0, const pair_type &p1) const
-  {
-    return p0.first < p1.first;
-  }
-};
-
-// Operator which merges two bounding boxes.
-struct merge_bboxes
-{
-  // TODO: annotate this function with __host__ __device__ so
-  //       so that they are able to work with Thrust
-  inline
-  bbox operator()(const bbox &b0, const bbox &b1) const
-  {
-    bbox bounds;
-    bounds.xmin = min(b0.xmin, b1.xmin);
-    bounds.xmax = max(b0.xmax, b1.xmax);
-    bounds.ymin = min(b0.ymin, b1.ymin);
-    bounds.ymax = max(b0.ymax, b1.ymax);
-    return bounds;
-  }
-};
-
 // Utility functions to encode leaves and children in single int
 // are defined in util.h:
 //   bool is_empty(int id);
@@ -50,35 +24,11 @@ struct merge_bboxes
 //   int get_leaf_id(int offset);
 //   int get_leaf_offset(int id);
 
-int main()
+bbox compute_bounding_box(const std::vector<float2> &points)
 {
-  const size_t num_points = 12;
-  const int threshold = 2; // A node with fewer than threshold points is a leaf.
-  const int max_level = 3;
-
-  thrust::device_vector<float2> points(num_points);
-
-  /******************************************
-   * 1. Generate points                     *
-   ******************************************/
-
-  // Generate random points using Thrust
-  thrust::tabulate(points.begin(), points.end(), random_point());
-
-  std::cout << "Points:\n";
-  for (int i = 0 ; i < points.size() ; ++i)
-  {
-    std::cout << std::setw(4) << i << " " << points[i] << std::endl;
-  }
-  std::cout << std::endl;
-
-  /******************************************
-   * 2. Compute bounding box                *
-   ******************************************/
-
   std::cout << "TODO: compute the bounding box using thrust::reduce\n" << std::endl;
   bbox bounds;
-  for (int i = 0 ; i < num_points ; ++i)
+  for (int i = 0 ; i < points.size() ; ++i)
   {
     float2 p = points[i];
     if ( p.x < bounds.xmin ) bounds.xmin = p.x;
@@ -87,60 +37,35 @@ int main()
     if ( p.y > bounds.ymax ) bounds.ymax = p.y;
   }
 
-  float xmid = 0.5f * (bounds.xmin + bounds.xmax);
-  float ymid = 0.5f * (bounds.ymin + bounds.ymax);
-  std::cout << "Bounding box:\n";
-  std::cout << "   min: " << make_float2(bounds.xmin, bounds.ymin) << std::endl;
-  std::cout << "   mid: " << make_float2(xmid, ymid) << std::endl;
-  std::cout << "   max: " << make_float2(bounds.xmax, bounds.ymax) << std::endl;
-  std::cout << std::endl;
+  return bounds;
+}
 
-  /******************************************
-   * 3. Classify points                     *
-   ******************************************/
 
-  std::cout << "TODO: move these tags to the GPU using thrust::device_vector\n" << std::endl;
-  std::vector<int> tags(num_points);
-
+void compute_tags(const std::vector<float2> &points, const bbox &bounds, int max_level, std::vector<int> &tags)
+{
   std::cout << "TODO: classify the points using thrust::transform\n" << std::endl;
-  for (int i = 0 ; i < num_points ; ++i)
+  for (int i = 0 ; i < points.size() ; ++i)
   {
     float2 p = points[i];
     tags[i] = point_to_tag(p, bounds, max_level);
   }
+}
 
-  std::cout << "Tags:                       ";
-  for (int level = 1 ; level <= max_level ; ++level)
-  {
-    std::cout << std::setw(3) << std::left << level;
-  }
-  std::cout << "\n                            ";
-  for (int level = 1 ; level <= max_level ; ++level)
-  {
-    std::cout << "xy ";
-  }
-  std::cout << std::right << std::endl;
-  for (int i = 0 ; i < points.size() ; ++i)
-  {
-    int tag = tags[i];
-    std::cout << std::setw(4) << i << " " << points[i] << ":  ";
-    print_tag(tags[i], max_level);
-    std::cout << std::endl;
-  }
-  std::cout << std::endl;
-  
-  /******************************************
-   * 4. Sort according to classification    *
-   ******************************************/
 
-  std::cout << "TODO: move these indices to the GPU using thrust::device_vector\n" << std::endl;
-  std::vector<int> indices(num_points);
+struct compare_tags
+{
+  template <typename pair_type>
+  inline bool operator()(const pair_type &p0, const pair_type &p1) const
+  {
+    return p0.first < p1.first;
+  }
+};
 
-  // Now that we have the geometric information, we can sort the
-  // points accordingly.
+void sort_points_by_tag(std::vector<int> &tags, std::vector<int> &indices)
+{
   std::cout << "TODO: sort the points using thrust::sort_by_key\n" << std::endl;
-  std::vector<std::pair<int, int> > tag_index_pairs(num_points);
-  for (int i = 0 ; i < num_points ; ++i)
+  std::vector<std::pair<int, int> > tag_index_pairs(tags.size());
+  for (int i = 0 ; i < tags.size() ; ++i)
   {
     tag_index_pairs[i].first  = tags[i];
     tag_index_pairs[i].second = i;
@@ -148,40 +73,21 @@ int main()
   
   std::sort(tag_index_pairs.begin(), tag_index_pairs.end(), compare_tags());
   
-  for (int i = 0 ; i < num_points ; ++i)
+  for (int i = 0 ; i < tags.size() ; ++i)
   {
     tags[i]    = tag_index_pairs[i].first;
     indices[i] = tag_index_pairs[i].second;
   }
+}
 
-  std::cout << "Sorted tags:                ";
-  for (int level = 1 ; level <= max_level ; ++level)
-  {
-    std::cout << std::setw(3) << std::left << level;
-  }
-  std::cout << "\n                            ";
-  for (int level = 1 ; level <= max_level ; ++level)
-  {
-    std::cout << "xy ";
-  }
-  std::cout << std::right << std::endl;
-  for (int i = 0 ; i < points.size() ; ++i)
-  {
-    int tag = tags[i];
-    std::cout << std::setw(4) << i << " " << points[i] << ":  ";
-    print_tag(tags[i], max_level);
-    std::cout << "  original index " << std::setw(4) << indices[i] << std::endl;
-  }
-  std::cout << std::endl;
 
-  /******************************************
-   * 5. Build the tree                      *
-   ******************************************/
-
-  std::cout << "TODO: move these nodes to the GPU using thrust::device_vector\n" << std::endl;
-  std::vector<int> nodes;
-  std::cout << "TODO: move these leaves to the GPU using thrust::device_vector\n" << std::endl;
-  std::vector<int2> leaves;
+void build_tree(const std::vector<int> &tags,
+                const bbox &bounds,
+                size_t max_level,
+                int threshold,
+                std::vector<int> &nodes,
+                std::vector<int2> &leaves)
+{
   std::cout << "TODO: move these active nodes to the GPU using thrust::device_vector\n" << std::endl;
   std::vector<int> active_nodes(1,0);
 
@@ -336,7 +242,7 @@ int main()
     std::vector<int> level_leaves(markers.size());
 
     // Enumerate nodes at this level
-    std::cout << "TODO: move the node emuration to the GPU using thrust::exclusive_scan\n";
+    std::cout << "TODO: move the node emuration to the GPU using thrust::transform_exclusive_scan\n";
     for (int i = 0, prefix_sum = 0 ; i < markers.size() ; ++i)
     {
       level_nodes[i] = prefix_sum;
@@ -348,7 +254,7 @@ int main()
     int num_level_nodes = level_nodes.back() + (markers.back() == NODE ? 1 : 0);
 
     // Enumerate leaves at this level
-    std::cout << "TODO: move the leaf emuration to the GPU using thrust::exclusive_scan\n";
+    std::cout << "TODO: move the leaf emuration to the GPU using thrust::transform_exclusive_scan\n";
     for (int i = 0, prefix_sum = 0 ; i < markers.size() ; ++i)
     {
       level_leaves[i] = prefix_sum;
@@ -448,6 +354,115 @@ int main()
     // Update the number of active nodes.
     num_active_nodes = num_level_nodes;
   }
+}
+
+
+int main()
+{
+  const size_t num_points = 12;
+  const int threshold = 2; // A node with fewer than threshold points is a leaf.
+  const int max_level = 3;
+
+  std::vector<float2> points(num_points);
+
+  /******************************************
+   * 1. Generate points                     *
+   ******************************************/
+
+  // Generate random points using Thrust
+  thrust::tabulate(points.begin(), points.end(), random_point());
+
+  std::cout << "Points:\n";
+  for (int i = 0 ; i < points.size() ; ++i)
+  {
+    std::cout << std::setw(4) << i << " " << points[i] << std::endl;
+  }
+  std::cout << std::endl;
+
+  /******************************************
+   * 2. Compute bounding box                *
+   ******************************************/
+
+  bbox bounds = compute_bounding_box(points);
+  
+  float xmid = 0.5f * (bounds.xmin + bounds.xmax);
+  float ymid = 0.5f * (bounds.ymin + bounds.ymax);
+  std::cout << "Bounding box:\n";
+  std::cout << "   min: " << make_float2(bounds.xmin, bounds.ymin) << std::endl;
+  std::cout << "   mid: " << make_float2(xmid, ymid) << std::endl;
+  std::cout << "   max: " << make_float2(bounds.xmax, bounds.ymax) << std::endl;
+  std::cout << std::endl;
+
+  /******************************************
+   * 3. Classify points                     *
+   ******************************************/
+
+  std::cout << "TODO: move these tags to the GPU using thrust::device_vector\n" << std::endl;
+  std::vector<int> tags(num_points);
+
+  compute_tags(points, bounds, max_level, tags);
+
+  std::cout << "Tags:                       ";
+  for (int level = 1 ; level <= max_level ; ++level)
+  {
+    std::cout << std::setw(3) << std::left << level;
+  }
+  std::cout << "\n                            ";
+  for (int level = 1 ; level <= max_level ; ++level)
+  {
+    std::cout << "xy ";
+  }
+  std::cout << std::right << std::endl;
+  for (int i = 0 ; i < points.size() ; ++i)
+  {
+    int tag = tags[i];
+    std::cout << std::setw(4) << i << " " << points[i] << ":  ";
+    print_tag(tags[i], max_level);
+    std::cout << std::endl;
+  }
+  std::cout << std::endl;
+  
+  /******************************************
+   * 4. Sort according to classification    *
+   ******************************************/
+
+  std::cout << "TODO: move these indices to the GPU using thrust::device_vector\n" << std::endl;
+  std::vector<int> indices(num_points);
+
+  // Now that we have the geometric information, we can sort the
+  // points accordingly.
+  sort_points_by_tag(tags, indices);
+
+  std::cout << "Sorted tags:                ";
+  for (int level = 1 ; level <= max_level ; ++level)
+  {
+    std::cout << std::setw(3) << std::left << level;
+  }
+  std::cout << "\n                            ";
+  for (int level = 1 ; level <= max_level ; ++level)
+  {
+    std::cout << "xy ";
+  }
+  std::cout << std::right << std::endl;
+  for (int i = 0 ; i < points.size() ; ++i)
+  {
+    int tag = tags[i];
+    std::cout << std::setw(4) << i << " " << points[i] << ":  ";
+    print_tag(tags[i], max_level);
+    std::cout << "  original index " << std::setw(4) << indices[i] << std::endl;
+  }
+  std::cout << std::endl;
+
+  /******************************************
+   * 5. Build the tree                      *
+   ******************************************/
+
+  std::cout << "TODO: move these nodes to the GPU using thrust::device_vector\n" << std::endl;
+  std::vector<int> nodes;
+  std::cout << "TODO: move these leaves to the GPU using thrust::device_vector\n" << std::endl;
+  std::vector<int2> leaves;
+
+  build_tree(tags, bounds, max_level, threshold, nodes, leaves);
 
   return 0;
 }
