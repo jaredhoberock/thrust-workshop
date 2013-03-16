@@ -84,7 +84,7 @@ void compute_child_tag_masks(const std::vector<int> &active_nodes,
                              size_t max_level,
                              std::vector<int> &children)
 {
-  std::cout << "TODO: compute child masks on GPU using thrust::transform\n";
+  std::cout << "TODO: compute child masks on GPU using thrust::tabulate\n";
   for (int i = 0 ; i < active_nodes.size() ; ++i)
   {
     int tag = active_nodes[i];
