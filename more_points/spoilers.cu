@@ -489,8 +489,7 @@ int main()
    * 1. Generate points                     *
    ******************************************/
 
-  // Generate random points using Thrust
-  thrust::tabulate(points.begin(), points.end(), random_point());
+  generate_random_points(points);
 
   std::cout << "Points:\n";
   for (int i = 0 ; i < points.size() ; ++i)

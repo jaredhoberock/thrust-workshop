@@ -402,8 +402,7 @@ void run_experiment(thrust::device_vector<float2> *points,
    * 1. Generate points                     *
    ******************************************/
 
-  // Generate random points using Thrust
-  thrust::tabulate(points->begin(), points->end(), random_point());
+  generate_random_points(*points);
 
   /******************************************
    * 2. Compute bounding box                *

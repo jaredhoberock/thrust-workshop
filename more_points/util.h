@@ -57,6 +57,12 @@ struct random_point
   }
 };
 
+template<typename Vector>
+void generate_random_points(Vector &points)
+{
+  thrust::tabulate(points.begin(), points.end(), random_point());
+}
+
 struct bbox
 {
   float xmin, xmax;

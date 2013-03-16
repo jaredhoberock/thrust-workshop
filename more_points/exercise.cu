@@ -107,11 +107,9 @@ void find_child_bounds(const std::vector<int> &tags,
   int length = (1 << (max_level - level) * 2) - 1;
   for (int i = 0 ; i < children.size() ; ++i)
   {
-    lower_bounds[i] = (int)std::distance(tags.begin(),
-                              std::lower_bound(tags.begin(), tags.end(), children[i]));
+    lower_bounds[i] = std::lower_bound(tags.begin(), tags.end(), children[i]) - tags.begin();
     
-    upper_bounds[i] = (int)std::distance(tags.begin(),
-                              std::upper_bound(tags.begin(), tags.end(), children[i] + length));
+    upper_bounds[i] = std::upper_bound(tags.begin(), tags.end(), children[i] + length) - tags.begin();
   }
 }
 
@@ -359,8 +357,7 @@ int main()
    * 1. Generate points                     *
    ******************************************/
 
-  // Generate random points using Thrust
-  thrust::tabulate(points.begin(), points.end(), random_point());
+  generate_random_points(points);
 
   std::cout << "Points:\n";
   for (int i = 0 ; i < points.size() ; ++i)
