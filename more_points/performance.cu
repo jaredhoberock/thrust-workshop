@@ -133,12 +133,12 @@ void find_child_bounds(const thrust::device_vector<int> &tags,
 }
 
 
-struct mark_nodes
+struct classify_node
 {
   int threshold;
   int last_level;
   
-  mark_nodes(int threshold, int last_level) : threshold(threshold), last_level(last_level) {}
+  classify_node(int threshold, int last_level) : threshold(threshold), last_level(last_level) {}
 
   template <typename tuple_type>
   inline __device__ __host__
@@ -177,7 +177,7 @@ void classify_children(const thrust::device_vector<int> &children,
                     thrust::make_zip_iterator(
                         thrust::make_tuple(lower_bounds.end(), upper_bounds.end())),
                     child_node_kind.begin(),
-                    mark_nodes(threshold, level == max_level));
+                    classify_node(threshold, level == max_level));
 }
 
 
