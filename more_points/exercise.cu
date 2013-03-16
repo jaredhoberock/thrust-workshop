@@ -191,10 +191,10 @@ void build_tree(const std::vector<int> &tags,
   std::cout << "TODO: move these active nodes to the GPU using thrust::device_vector\n" << std::endl;
   std::vector<int> active_nodes(1,0);
 
-  int num_nodes = 0, num_leaves = 0;
+  int num_leaves = 0;
 
   // Build the tree one level at a time, starting at the root
-  for (int level = 1 ; !active_nodes.empty() && level <= max_level ; ++level)
+  for(int level = 1 ; !active_nodes.empty() && level <= max_level ; ++level)
   {
     std::cout << "\n\n\n*************************\n";
     std::cout << "*** BUILDING LEVEL " << std::setw(4) << level << " *\n";
@@ -335,27 +335,25 @@ void build_tree(const std::vector<int> &tags,
      ******************************************/
 
     // Add these children to the list of nodes
-    nodes.resize(num_nodes + children.size());
+    int children_begin = nodes.size();
+    nodes.resize(nodes.size() + children.size());
 
     std::cout << "TODO: add children to node list on the GPU using thrust::transform\n";
-    for (int i = 0 ; i < children.size() ; ++i )
+    for(int i = 0 ; i < children.size() ; ++i )
     {
-      switch (child_node_kind[i])
+      switch(child_node_kind[i])
       {
       case EMPTY:
-        nodes[num_nodes + i] = get_empty_id();
+        nodes[children_begin + i] = get_empty_id();
         break;
       case LEAF:
-        nodes[num_nodes + i] = get_leaf_id(num_leaves + leaves_on_this_level[i]);
+        nodes[children_begin + i] = get_leaf_id(num_leaves + leaves_on_this_level[i]);
         break;
       case NODE:
-        nodes[num_nodes + i] = num_nodes + children.size() + 4 * nodes_on_this_level[i];
+        nodes[children_begin + i] = children_begin + children.size() + 4 * nodes_on_this_level[i];
         break;
       }
     }
-
-    // Update the number of nodes
-    num_nodes += children.size();
 
     print_nodes(nodes);
 
@@ -367,9 +365,9 @@ void build_tree(const std::vector<int> &tags,
     leaves.resize(num_leaves + num_nodes_and_leaves_on_this_level.second);
 
     std::cout << "TODO: add child leaves to leaf list on the GPU using thrust::scatter_if\n";
-    for (int i = 0 ; i < children.size() ; ++i)
+    for(int i = 0 ; i < children.size() ; ++i)
     {
-      if (child_node_kind[i] == LEAF)
+      if(child_node_kind[i] == LEAF)
       {
         leaves[num_leaves + leaves_on_this_level[i]] = make_int2(lower_bounds[i], upper_bounds[i]);
       }

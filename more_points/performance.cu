@@ -267,7 +267,7 @@ void build_tree(const thrust::device_vector<int> &tags,
 {
   thrust::device_vector<int> active_nodes(1,0);
 
-  int num_nodes = 0, num_leaves = 0;
+  int num_leaves = 0;
 
   // Build the tree one level at a time, starting at the root
   for (int level = 1 ; !active_nodes.empty() && level <= max_level ; ++level)
@@ -319,7 +319,8 @@ void build_tree(const thrust::device_vector<int> &tags,
      ******************************************/
 
     // Add these children to the list of nodes
-    nodes.resize(num_nodes + children.size());
+    int children_begin = nodes.size();
+    nodes.resize(nodes.size() + children.size());
 
     thrust::transform(thrust::make_zip_iterator(
                           thrust::make_tuple(
@@ -327,11 +328,8 @@ void build_tree(const thrust::device_vector<int> &tags,
                       thrust::make_zip_iterator(
                           thrust::make_tuple(
                               child_node_kind.end(), nodes_on_this_level.end(), leaves_on_this_level.end())),
-                      nodes.begin() + num_nodes,
-                      write_nodes(num_nodes + 4 * num_active_nodes, num_leaves));
-
-    // Update the number of nodes
-    num_nodes += 4 * num_active_nodes;
+                      nodes.begin() + children_begin,
+                      write_nodes(children_begin + 4 * num_active_nodes, num_leaves));
 
     /******************************************
      * 6. Add the leaves to the leaf list     *
