@@ -94,37 +94,6 @@ struct expand_active_nodes
 };
 
 
-struct write_nodes
-{
-  int num_nodes, num_leaves;
-
-  write_nodes(int num_nodes, int num_leaves) : 
-    num_nodes(num_nodes), num_leaves(num_leaves) 
-  {}
-
-  template <typename tuple_type>
-  inline __device__ __host__
-  int operator()(const tuple_type &t) const
-  {
-    int node_type = thrust::get<0>(t);
-    int node_idx  = thrust::get<1>(t);
-    int leaf_idx  = thrust::get<2>(t);
-
-    if (node_type == EMPTY)
-    {
-      return get_empty_id();
-    }
-    else if (node_type == LEAF)
-    {
-      return get_leaf_id(num_leaves + leaf_idx);
-    }
-    else
-    {
-      return num_nodes + 4 * node_idx;
-    }
-  }
-};
-
 struct make_leaf
 {
   typedef int2 result_type;
@@ -253,6 +222,60 @@ std::pair<int,int> enumerate_nodes_and_leaves(const thrust::device_vector<int> &
   num_nodes_and_leaves_on_this_level.second = leaves_on_this_level.back() + (child_node_kind.back() == LEAF ? 1 : 0);
 
   return num_nodes_and_leaves_on_this_level;
+}
+
+
+struct write_nodes
+{
+  int num_nodes, num_leaves;
+
+  write_nodes(int num_nodes, int num_leaves) : 
+    num_nodes(num_nodes), num_leaves(num_leaves) 
+  {}
+
+  template <typename tuple_type>
+  inline __device__ __host__
+  int operator()(const tuple_type &t) const
+  {
+    int node_type = thrust::get<0>(t);
+    int node_idx  = thrust::get<1>(t);
+    int leaf_idx  = thrust::get<2>(t);
+
+    if (node_type == EMPTY)
+    {
+      return get_empty_id();
+    }
+    else if (node_type == LEAF)
+    {
+      return get_leaf_id(num_leaves + leaf_idx);
+    }
+    else
+    {
+      return num_nodes + 4 * node_idx;
+    }
+  }
+};
+
+
+void create_child_nodes(const thrust::device_vector<int> &child_node_kind,
+                        const thrust::device_vector<int> &nodes_on_this_level,
+                        const thrust::device_vector<int> &leaves_on_this_level,
+                        int num_leaves,
+                        thrust::device_vector<int> &nodes)
+{
+  int num_children = child_node_kind.size();
+
+  int children_begin = nodes.size();
+  nodes.resize(nodes.size() + num_children);
+  
+  thrust::transform(thrust::make_zip_iterator(
+                        thrust::make_tuple(
+                            child_node_kind.begin(), nodes_on_this_level.begin(), leaves_on_this_level.begin())),
+                    thrust::make_zip_iterator(
+                        thrust::make_tuple(
+                            child_node_kind.end(), nodes_on_this_level.end(), leaves_on_this_level.end())),
+                    nodes.begin() + children_begin,
+                    write_nodes(nodes.size(), num_leaves));
 }
 
 
@@ -402,18 +425,7 @@ void build_tree(const thrust::device_vector<int> &tags,
      * 5. Add the children to the node list   *
      ******************************************/
 
-    // Add these children to the list of nodes
-    int children_begin = nodes.size();
-    nodes.resize(nodes.size() + children.size());
-
-    thrust::transform(thrust::make_zip_iterator(
-                          thrust::make_tuple(
-                              child_node_kind.begin(), nodes_on_this_level.begin(), leaves_on_this_level.begin())),
-                      thrust::make_zip_iterator(
-                          thrust::make_tuple(
-                              child_node_kind.end(), nodes_on_this_level.end(), leaves_on_this_level.end())),
-                      nodes.begin() + children_begin,
-                      write_nodes(children_begin + 4 * num_active_nodes, num_leaves));
+    create_child_nodes(child_node_kind, nodes_on_this_level, leaves_on_this_level, num_leaves, nodes);
 
     print_nodes(nodes);
 

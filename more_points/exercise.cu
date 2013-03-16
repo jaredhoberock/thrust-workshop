@@ -181,6 +181,36 @@ std::pair<int,int> enumerate_nodes_and_leaves(const std::vector<int> &child_node
 }
 
 
+void create_child_nodes(const std::vector<int> &child_node_kind,
+                        const std::vector<int> &nodes_on_this_level,
+                        const std::vector<int> &leaves_on_this_level,
+                        int num_leaves,
+                        std::vector<int> &nodes)
+{
+  int num_children = child_node_kind.size();
+
+  int children_begin = nodes.size();
+  nodes.resize(nodes.size() + num_children);
+  
+  std::cout << "TODO: add children to node list on the GPU using thrust::transform\n";
+  for(int i = 0 ; i < num_children; ++i)
+  {
+    switch(child_node_kind[i])
+    {
+    case EMPTY:
+      nodes[children_begin + i] = get_empty_id();
+      break;
+    case LEAF:
+      nodes[children_begin + i] = get_leaf_id(num_leaves + leaves_on_this_level[i]);
+      break;
+    case NODE:
+      nodes[children_begin + i] = children_begin + num_children + 4 * nodes_on_this_level[i];
+      break;
+    }
+  }
+}
+
+
 void build_tree(const std::vector<int> &tags,
                 const bbox &bounds,
                 size_t max_level,
@@ -334,26 +364,7 @@ void build_tree(const std::vector<int> &tags,
      * 5. Add the children to the node list   *
      ******************************************/
 
-    // Add these children to the list of nodes
-    int children_begin = nodes.size();
-    nodes.resize(nodes.size() + children.size());
-
-    std::cout << "TODO: add children to node list on the GPU using thrust::transform\n";
-    for(int i = 0 ; i < children.size() ; ++i )
-    {
-      switch(child_node_kind[i])
-      {
-      case EMPTY:
-        nodes[children_begin + i] = get_empty_id();
-        break;
-      case LEAF:
-        nodes[children_begin + i] = get_leaf_id(num_leaves + leaves_on_this_level[i]);
-        break;
-      case NODE:
-        nodes[children_begin + i] = children_begin + children.size() + 4 * nodes_on_this_level[i];
-        break;
-      }
-    }
+    create_child_nodes(child_node_kind, nodes_on_this_level, leaves_on_this_level, num_leaves, nodes);
 
     print_nodes(nodes);
 
