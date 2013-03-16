@@ -23,20 +23,19 @@ At a high level, the program looks like this:
 
     int main()
     {
-      const size_t num_points = 10000000;
-      size_t max_level = XXX;
-      size_t threshold = YYY;
+      const int num_points = 10000000;
+      int max_level = XXX;
+      int threshold = YYY;
 
       std::vector<float2> points(num_points);
-
       generate_random_points(points);
 
       bbox bounds = compute_bounding_box(points);
 
       std::vector<int> tags(num_points);
-
       compute_tags(points, bounds, max_level, tags);
 
+      std::vector<int> indices(num_points);
       sort_points_by_tag(tags, indices);
 
       std::vector<int> nodes;
@@ -46,47 +45,9 @@ At a high level, the program looks like this:
 
 We'll describe what's going on with the `tags` later.
 
-Our tree data structure is just an array of (interior) nodes and a list of (terminal) leaves.
+Our tree data structure is just an array of nodes and a list of leaves. Each leaf indexes a contiguous piece of the `indices` array.
 
-The `build_tree` function is itself composed of several steps, so let's take a look inside:
-
-    void build_tree(const std::vector<int> &tags,
-                    const bbox &bounds,
-                    size_t max_level,
-                    size_t threshold,
-                    std::vector<int> &nodes,
-                    std::vector<int2> &leaves)
-    {
-      std::vector<int> active_nodes(1,0);
-      
-      // build the tree one level at a time, starting at the root
-      for(int level = 1; !active_nodes.empty() && level <= max_level; ++level)
-      {
-        // each node has four children since this is a quad tree
-        std::vector<int> children(4 * active_nodes.size());
-
-        compute_child_tag_masks(active_nodes, level, max_level, children);
-
-        std::vector<int> lower_bounds(children.size());
-        std::vector<int> upper_bounds(children.size());
-        compute_child_bounds(tags, children, level, max_level, lower_bounds, upper_bounds);
-
-        // mark each child as either empty, an interior node, or a leaf
-        std::vector<int> child_node_kind(children.size(), 0);
-        classify_children(children, lower_bounds, upper_bounds, child_node_kind);
-
-        std::vector<int> nodes_on_this_level(child_node_kind.size());
-        std::vector<int> leaves_on_this_level(child_node_kind.size());
-
-        enumerate_nodes_and_leaves(child_node_kind, nodes_on_this_level, leaves_on_this_level);
-
-        create_child_nodes(child_node_kind, nodes_on_this_level, leaves_on_this_level, nodes);
-
-        create_leaves(child_node_kind, leaves_on_this_level, lower_bounds, upper_bounds, leaves);
-
-        activate_nodes_for_next_level(child_node_kind, children, active_nodes);
-      }
-    }
+The implementation of `build_tree` function is fairly complex. We'll peek inside later.
 
 # Massaging the Data
 
@@ -251,7 +212,7 @@ The sequential CPU code does it this way:
       }
     };
 
-    void sort_points_by_tag(std::vector<float2> &points, std::vector<int> &tags)
+    void sort_points_by_tag(std::vector<int> &tags, std::vector<float2> &points)
     {
       // introduce a temporary array of pairs for sorting purposes
       std::vector<std::pair<int,int> > tag_index_pairs(num_points);
@@ -273,8 +234,64 @@ The sequential CPU code does it this way:
 
 Which is a pretty roundabout way of coaxing a key-value sort out of `std::sort`. With Thrust we can do it in parallel with just a call to `thrust::sort_by_key`:
 
-    void sort_points_by_tag(std::vector<float2> &points, std::vector<int> &tags)
+    void sort_points_by_tag(std::vector<int> &tags, std::vector<float2> &points)
     {
       thrust::sort_by_key(tags.begin(), tags.end(), points.begin());
     }
+
+# Building the Tree
+
+Now that we've got our points nice and organized, it's time to build the tree! We'll build each level of the tree one by one, and building each level requires a series of steps.
+
+Here's the high-level overview of the process:
+
+    void build_tree(const std::vector<int> &tags,
+                    const bbox &bounds,
+                    int max_level,
+                    int threshold,
+                    std::vector<int> &nodes,
+                    std::vector<int2> &leaves)
+    {
+      std::vector<int> active_nodes(1,0);
+      
+      // build the tree one level at a time, starting at the root
+      for(int level = 1; !active_nodes.empty() && level <= max_level; ++level)
+      {
+        // each node has four children since this is a quad tree
+        std::vector<int> children(4 * active_nodes.size());
+
+        compute_child_tag_masks(active_nodes, level, max_level, children);
+
+        std::vector<int> lower_bounds(children.size());
+        std::vector<int> upper_bounds(children.size());
+        find_child_bounds(tags, children, level, max_level, lower_bounds, upper_bounds);
+
+        // mark each child as either empty, an interior node, or a leaf
+        std::vector<int> child_node_kind(children.size(), 0);
+        classify_children(children, lower_bounds, upper_bounds, level, max_level, threshold, child_node_kind);
+
+        // enumerate the nodes and leaves at this level
+        std::vector<int> nodes_on_this_level(child_node_kind.size());
+        std::vector<int> leaves_on_this_level(child_node_kind.size());
+
+        std::pair<int,int> num_nodes_and_leaves_on_this_level =
+          enumerate_nodes_and_leaves(child_node_kind, nodes_on_this_level, leaves_on_this_level);
+
+        create_child_nodes(child_node_kind, nodes_on_this_level, leaves_on_this_level, leaves.size(), nodes);
+
+        create_leaves(child_node_kind, leaves_on_this_level, lower_bounds, upper_bounds, num_nodes_and_leaves_on_this_level.second, leaves);
+
+        activate_nodes_for_next_level(children, child_node_kind, active_nodes);
+
+        activate_nodes_for_next_level(children, child_node_kind, num_nodes_and_leaves_on_this_level.first, active_nodes);
+      }
+    }
+
+You can see that it takes as input the information we computed in the prior
+steps (`tags`, `bounds`) and some tweakable knobs (`max_level`, `threshold`)
+and produces two arrays: `nodes` and `leaves`.
+
+Each element of the `nodes` array is an index which identifies whether the node is empty, or whether it
+refers to a terminal leaf, or an interior node. When it is a leaf, the index encodes where in the `leaves` array it lives.
+When it is a node, 
 
