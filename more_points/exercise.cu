@@ -244,8 +244,6 @@ void build_tree(const std::vector<int> &tags,
   std::cout << "TODO: move these active nodes to the GPU using thrust::device_vector\n" << std::endl;
   std::vector<int> active_nodes(1,0);
 
-  int num_leaves = 0;
-
   // Build the tree one level at a time, starting at the root
   for(int level = 1 ; !active_nodes.empty() && level <= max_level ; ++level)
   {
@@ -387,7 +385,7 @@ void build_tree(const std::vector<int> &tags,
      * 5. Add the children to the node list   *
      ******************************************/
 
-    create_child_nodes(child_node_kind, nodes_on_this_level, leaves_on_this_level, num_leaves, nodes);
+    create_child_nodes(child_node_kind, nodes_on_this_level, leaves_on_this_level, leaves.size(), nodes);
 
     print_nodes(nodes);
 
@@ -396,9 +394,6 @@ void build_tree(const std::vector<int> &tags,
      ******************************************/
 
     create_leaves(child_node_kind, leaves_on_this_level, lower_bounds, upper_bounds, num_nodes_and_leaves_on_this_level.second, leaves);
-
-    // Update the number of leaves
-    num_leaves += num_nodes_and_leaves_on_this_level.second;
 
     print_leaves(leaves);
 
