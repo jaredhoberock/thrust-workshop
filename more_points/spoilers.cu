@@ -94,21 +94,6 @@ struct expand_active_nodes
 };
 
 
-struct make_leaf
-{
-  typedef int2 result_type;
-  template <typename tuple_type>
-  inline __device__ __host__
-  int2 operator()(const tuple_type &t) const
-  {
-    int x = thrust::get<0>(t);
-    int y = thrust::get<1>(t);
-
-    return make_int2(x, y);
-  }
-};
-
-
 void compute_child_tag_masks(const thrust::device_vector<int> &active_nodes,
                              int level,
                              size_t max_level,
@@ -279,6 +264,47 @@ void create_child_nodes(const thrust::device_vector<int> &child_node_kind,
 }
 
 
+struct make_leaf
+{
+  typedef int2 result_type;
+  template <typename tuple_type>
+  inline __device__ __host__
+  int2 operator()(const tuple_type &t) const
+  {
+    int x = thrust::get<0>(t);
+    int y = thrust::get<1>(t);
+
+    return make_int2(x, y);
+  }
+};
+
+
+void create_leaves(const thrust::device_vector<int> &child_node_kind,
+                   const thrust::device_vector<int> &leaves_on_this_level,
+                   const thrust::device_vector<int> &lower_bounds,
+                   const thrust::device_vector<int> &upper_bounds,
+                   int num_leaves_on_this_level,
+                   thrust::device_vector<int2> &leaves)
+{
+  int children_begin = leaves.size();
+
+  leaves.resize(leaves.size() + num_leaves_on_this_level);
+
+  thrust::scatter_if(thrust::make_transform_iterator(
+                         thrust::make_zip_iterator(
+                             thrust::make_tuple(lower_bounds.begin(), upper_bounds.begin())),
+                         make_leaf()),
+                     thrust::make_transform_iterator(
+                         thrust::make_zip_iterator(
+                             thrust::make_tuple(lower_bounds.end(), upper_bounds.end())),
+                         make_leaf()),
+                     leaves_on_this_level.begin(),
+                     child_node_kind.begin(),
+                     leaves.begin() + children_begin,
+                     is_a<LEAF>());
+}
+
+
 void build_tree(const thrust::device_vector<int> &tags,
                 const bbox &bounds,
                 size_t max_level,
@@ -433,20 +459,7 @@ void build_tree(const thrust::device_vector<int> &tags,
      * 6. Add the leaves to the leaf list     *
      ******************************************/
 
-    // Add child leaves to the list of leaves
-    leaves.resize(num_leaves + num_nodes_and_leaves_on_this_level.second);
-    thrust::scatter_if(thrust::make_transform_iterator(
-                           thrust::make_zip_iterator(
-                               thrust::make_tuple(lower_bounds.begin(), upper_bounds.begin())),
-                           make_leaf()),
-                       thrust::make_transform_iterator(
-                           thrust::make_zip_iterator(
-                               thrust::make_tuple(lower_bounds.end(), upper_bounds.end())),
-                           make_leaf()),
-                       leaves_on_this_level.begin(),
-                       child_node_kind.begin(),
-                       leaves.begin() + num_leaves,
-                       is_a<LEAF>());
+    create_leaves(child_node_kind, leaves_on_this_level, lower_bounds, upper_bounds, num_nodes_and_leaves_on_this_level.second, leaves);
 
     // Update the number of leaves
     num_leaves += num_nodes_and_leaves_on_this_level.second;
@@ -576,5 +589,4 @@ int main()
 
   return 0;
 }
-
 

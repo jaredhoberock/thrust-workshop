@@ -211,6 +211,29 @@ void create_child_nodes(const std::vector<int> &child_node_kind,
 }
 
 
+void create_leaves(const std::vector<int> &child_node_kind,
+                   const std::vector<int> &leaves_on_this_level,
+                   const std::vector<int> &lower_bounds,
+                   const std::vector<int> &upper_bounds,
+                   int num_leaves_on_this_level,
+                   std::vector<int2> &leaves)
+{
+  int children_begin = leaves.size();
+
+  // Add child leaves to the list of leaves
+  leaves.resize(leaves.size() + num_leaves_on_this_level);
+  
+  std::cout << "TODO: add child leaves to leaf list on the GPU using thrust::scatter_if\n";
+  for(int i = 0; i < child_node_kind.size() ; ++i)
+  {
+    if(child_node_kind[i] == LEAF)
+    {
+      leaves[children_begin + leaves_on_this_level[i]] = make_int2(lower_bounds[i], upper_bounds[i]);
+    }
+  }
+}
+
+
 void build_tree(const std::vector<int> &tags,
                 const bbox &bounds,
                 size_t max_level,
@@ -372,17 +395,7 @@ void build_tree(const std::vector<int> &tags,
      * 6. Add the leaves to the leaf list     *
      ******************************************/
 
-    // Add child leaves to the list of leaves
-    leaves.resize(num_leaves + num_nodes_and_leaves_on_this_level.second);
-
-    std::cout << "TODO: add child leaves to leaf list on the GPU using thrust::scatter_if\n";
-    for(int i = 0 ; i < children.size() ; ++i)
-    {
-      if(child_node_kind[i] == LEAF)
-      {
-        leaves[num_leaves + leaves_on_this_level[i]] = make_int2(lower_bounds[i], upper_bounds[i]);
-      }
-    }
+    create_leaves(child_node_kind, leaves_on_this_level, lower_bounds, upper_bounds, num_nodes_and_leaves_on_this_level.second, leaves);
 
     // Update the number of leaves
     num_leaves += num_nodes_and_leaves_on_this_level.second;
