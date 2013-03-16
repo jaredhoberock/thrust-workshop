@@ -308,6 +308,22 @@ void create_leaves(const thrust::device_vector<int> &child_node_kind,
 }
 
 
+void activate_nodes_for_next_level(const thrust::device_vector<int> &children,
+                                   const thrust::device_vector<int> &child_node_kind,
+                                   int num_nodes_on_this_level,
+                                   thrust::device_vector<int> &active_nodes)
+{
+  // Set active nodes for the next level to be all the childs nodes from this level
+  active_nodes.resize(num_nodes_on_this_level);
+  
+  thrust::copy_if(children.begin(),
+                  children.end(),
+                  child_node_kind.begin(),
+                  active_nodes.begin(),
+                  is_a<NODE>());
+}
+
+
 void build_tree(const thrust::device_vector<int> &tags,
                 const bbox &bounds,
                 size_t max_level,
@@ -380,12 +396,6 @@ void build_tree(const thrust::device_vector<int> &tags,
     
     // Set active nodes for the next level to be all the childs nodes from this level
     active_nodes.resize(num_nodes_and_leaves_on_this_level.first);
-
-    thrust::copy_if(children.begin(),
-                    children.end(),
-                    child_node_kind.begin(),
-                    active_nodes.begin(),
-                    is_a<NODE>());
 
     // Update the number of active nodes.
     num_active_nodes = num_nodes_and_leaves_on_this_level.first;
