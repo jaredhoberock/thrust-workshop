@@ -81,7 +81,7 @@ void sort_points_by_tag(std::vector<int> &tags, std::vector<int> &indices)
 
 void compute_child_tag_masks(const std::vector<int> &active_nodes,
                              int level,
-                             size_t max_level,
+                             int max_level,
                              std::vector<int> &children)
 {
   std::cout << "TODO: compute child masks on GPU using thrust::tabulate\n";
@@ -99,7 +99,7 @@ void compute_child_tag_masks(const std::vector<int> &active_nodes,
 void find_child_bounds(const std::vector<int> &tags,
                        const std::vector<int> &children,
                        int level,
-                       size_t max_level,
+                       int max_level,
                        std::vector<int> &lower_bounds,
                        std::vector<int> &upper_bounds)
 {
@@ -252,7 +252,7 @@ void activate_nodes_for_next_level(const std::vector<int> &children,
 
 void build_tree(const std::vector<int> &tags,
                 const bbox &bounds,
-                size_t max_level,
+                int max_level,
                 int threshold,
                 std::vector<int> &nodes,
                 std::vector<int2> &leaves)
@@ -349,7 +349,7 @@ void build_tree(const std::vector<int> &tags,
 
 int main()
 {
-  const size_t num_points = 12;
+  const int num_points = 12;
   const int threshold = 2; // A node with fewer than threshold points is a leaf.
   const int max_level = 3;
 

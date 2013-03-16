@@ -93,7 +93,7 @@ struct child_index_to_tag_mask
 
 void compute_child_tag_masks(const thrust::device_vector<int> &active_nodes,
                              int level,
-                             size_t max_level,
+                             int max_level,
                              thrust::device_vector<int> &children)
 {
   // For each active node, generate the tag mask for each of its 4 children
@@ -105,7 +105,7 @@ void compute_child_tag_masks(const thrust::device_vector<int> &active_nodes,
 void find_child_bounds(const thrust::device_vector<int> &tags,
                        const thrust::device_vector<int> &children,
                        int level,
-                       size_t max_level,
+                       int max_level,
                        thrust::device_vector<int> &lower_bounds,
                        thrust::device_vector<int> &upper_bounds)
 {
@@ -318,7 +318,7 @@ void activate_nodes_for_next_level(const thrust::device_vector<int> &children,
 
 void build_tree(const thrust::device_vector<int> &tags,
                 const bbox &bounds,
-                size_t max_level,
+                int max_level,
                 int threshold,
                 thrust::device_vector<int> &nodes,
                 thrust::device_vector<int2> &leaves)
@@ -479,7 +479,7 @@ void build_tree(const thrust::device_vector<int> &tags,
 
 int main()
 {
-  const size_t num_points = 12;
+  const int num_points = 12;
   const int threshold = 2; // A node with fewer than threshold points is a leaf.
   const int max_level = 3;
 

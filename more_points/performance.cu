@@ -96,7 +96,7 @@ struct child_index_to_tag_mask
 
 void compute_child_tag_masks(const thrust::device_vector<int> &active_nodes,
                              int level,
-                             size_t max_level,
+                             int max_level,
                              thrust::device_vector<int> &children)
 {
   // For each active node, generate the tag mask for each of its 4 children
@@ -108,7 +108,7 @@ void compute_child_tag_masks(const thrust::device_vector<int> &active_nodes,
 void find_child_bounds(const thrust::device_vector<int> &tags,
                        const thrust::device_vector<int> &children,
                        int level,
-                       size_t max_level,
+                       int max_level,
                        thrust::device_vector<int> &lower_bounds,
                        thrust::device_vector<int> &upper_bounds)
 {
@@ -321,7 +321,7 @@ void activate_nodes_for_next_level(const thrust::device_vector<int> &children,
 
 void build_tree(const thrust::device_vector<int> &tags,
                 const bbox &bounds,
-                size_t max_level,
+                int max_level,
                 int threshold,
                 thrust::device_vector<int> &nodes,
                 thrust::device_vector<int2> &leaves)
@@ -397,7 +397,7 @@ void run_experiment(thrust::device_vector<float2> *points,
                     const int threshold,
                     const int max_level)
 {
-  const size_t num_points = points->size();
+  const int num_points = points->size();
   /******************************************
    * 1. Generate points                     *
    ******************************************/
@@ -438,7 +438,7 @@ void run_experiment(thrust::device_vector<float2> *points,
 
 int main()
 {
-  const size_t num_points = 4*1024*1024;
+  const int num_points = 4*1024*1024;
   const int threshold = 32; // A node with fewer than threshold points is a leaf.
   const int max_level = 10;
 
@@ -453,7 +453,7 @@ int main()
 
   std::cout << "Timing...\n" << std::endl;
 
-  size_t num_trials = 25;
+  int num_trials = 25;
   double mean_msecs = time_invocation_cuda(num_trials, run_experiment, &points, &nodes, &leaves, threshold, max_level);
   double mean_secs = mean_msecs / 1000;
   double millions_of_points = double(num_points) / 1000000;
