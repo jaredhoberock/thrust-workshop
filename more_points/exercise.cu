@@ -270,16 +270,13 @@ void build_tree(const std::vector<int> &tags,
     std::cout << "*** BUILDING LEVEL " << std::setw(4) << level << " *\n";
     std::cout << "*************************\n";
 
-    // Number of nodes to process at this level
-    int num_active_nodes = static_cast<int>(active_nodes.size());
-
     std::cout << "Active nodes:\n      ";
     for (int i = 1 ; i <= max_level ; ++i)
     {
       std::cout << "xy ";
     }
     std::cout << std::endl;
-    for (int i = 0 ; i < num_active_nodes ; ++i)
+    for (int i = 0 ; i < active_nodes.size() ; ++i)
     {
       std::cout << std::setw(4) << i << ": ";
       print_tag(active_nodes[i], max_level);
@@ -293,7 +290,7 @@ void build_tree(const std::vector<int> &tags,
 
     // New children: 4 quadrants per active node = 4 children
     std::cout << "TODO: move these children to the GPU using thrust::device_vector\n";
-    std::vector<int> children(4*num_active_nodes);
+    std::vector<int> children(4*active_nodes.size());
 
     compute_child_tag_masks(active_nodes, level, max_level, children);
 
@@ -421,9 +418,6 @@ void build_tree(const std::vector<int> &tags,
      ******************************************/
 
     activate_nodes_for_next_level(children, child_node_kind, num_nodes_and_leaves_on_this_level.first, active_nodes);
-
-    // Update the number of active nodes.
-    num_active_nodes = num_nodes_and_leaves_on_this_level.first;
   }
 }
 

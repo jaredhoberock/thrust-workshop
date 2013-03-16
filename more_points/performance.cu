@@ -336,15 +336,12 @@ void build_tree(const thrust::device_vector<int> &tags,
   // Build the tree one level at a time, starting at the root
   for (int level = 1 ; !active_nodes.empty() && level <= max_level ; ++level)
   {
-    // Number of nodes to process at this level
-    int num_active_nodes = static_cast<int>(active_nodes.size());
-
     /******************************************
      * 1. Calculate children                  *
      ******************************************/
 
     // New children: 4 quadrants per active node = 4 children
-    thrust::device_vector<int> children(4*num_active_nodes);
+    thrust::device_vector<int> children(4*active_nodes.size());
 
     compute_child_tag_masks(active_nodes, level, max_level, children);
 
@@ -396,9 +393,6 @@ void build_tree(const thrust::device_vector<int> &tags,
     
     // Set active nodes for the next level to be all the childs nodes from this level
     active_nodes.resize(num_nodes_and_leaves_on_this_level.first);
-
-    // Update the number of active nodes.
-    num_active_nodes = num_nodes_and_leaves_on_this_level.first;
   }
 }
 
