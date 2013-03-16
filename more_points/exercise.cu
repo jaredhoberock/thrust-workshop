@@ -274,7 +274,6 @@ void build_tree(const std::vector<int> &tags,
     // New children: 4 quadrants per active node = 4 children
     std::cout << "TODO: move these children to the GPU using thrust::device_vector\n";
     std::vector<int> children(4*active_nodes.size());
-
     compute_child_tag_masks(active_nodes, level, max_level, children);
 
     print_children(children, max_level);
@@ -283,12 +282,10 @@ void build_tree(const std::vector<int> &tags,
      * 2. Determine interval for each child   *
      ******************************************/
 
-    // For each child we need interval bounds
+    // Locate lower and upper bounds for points in each quadrant
     std::cout << "TODO: move these bounds to the GPU using thrust::device_vector\n";
     std::vector<int> lower_bounds(children.size());
     std::vector<int> upper_bounds(children.size());
-
-    // Locate lower and upper bounds for points in each quadrant
     find_child_bounds(tags, children, level, max_level, lower_bounds, upper_bounds);
 
     print_child_bounds(lower_bounds, upper_bounds);
@@ -300,7 +297,6 @@ void build_tree(const std::vector<int> &tags,
     // Mark each child as either empty, a node, or a leaf
     std::cout << "TODO: move these markers to the GPU using thrust::device_vector\n";
     std::vector<int> child_node_kind(children.size(), 0);
-
     classify_children(children, lower_bounds, upper_bounds, level, max_level, threshold, child_node_kind);
 
     print_child_node_kind(child_node_kind);
