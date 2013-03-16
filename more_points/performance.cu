@@ -16,9 +16,6 @@
 #include "time_invocation_cuda.hpp"
 #include "util.h"
 
-// Markers
-enum { NODE = 1, LEAF = 2, EMPTY = 4 };
-
 // Utility functions to encode leaves and children in single int
 // are defined in util.h:
 //   bool is_empty(int id);

@@ -122,6 +122,109 @@ void print_tag(int tag, int max_level)
   }
 }
 
+void print_active_nodes(const thrust::host_vector<int> &active_nodes, int max_level)
+{
+  std::cout << "Active nodes:\n      ";
+  for (int i = 1 ; i <= max_level ; ++i)
+  {
+    std::cout << "xy ";
+  }
+  std::cout << std::endl;
+  for (int i = 0 ; i < active_nodes.size() ; ++i)
+  {
+    std::cout << std::setw(4) << i << ": ";
+    print_tag(active_nodes[i], max_level);
+    std::cout << std::endl;
+  }
+  std::cout << std::endl;
+}
+
+void print_children(const thrust::host_vector<int> &children, int max_level)
+{
+  std::cout << "Children:\n      ";
+  for (int i = 1 ; i <= max_level ; ++i)
+  {
+    std::cout << "xy ";
+  }
+  std::cout << std::endl;
+  for (int i = 0 ; i < children.size() ; ++i)
+  {
+    std::cout << std::setw(4) << i << ": ";
+    print_tag(children[i], max_level);
+    std::cout << std::endl;
+  }
+  std::cout << std::endl;
+}
+
+void print_child_bounds(const thrust::host_vector<int> &lower_bounds,
+                        const thrust::host_vector<int> &upper_bounds)
+{
+  std::cout << "Child bounds:\n      [ lower upper count ]\n";
+  for (int i = 0 ; i < lower_bounds.size() ; ++i)
+  {
+    std::cout << std::setw(4) << i << ": [ ";
+    std::cout << std::setw(4) << lower_bounds[i] << "  ";
+    std::cout << std::setw(4) << upper_bounds[i] << "  ";
+    std::cout << std::setw(4) << upper_bounds[i] - lower_bounds[i] << "  ]";
+    std::cout << std::endl;
+  }
+  std::cout << std::endl;
+}
+
+// Markers
+enum { NODE = 1, LEAF = 2, EMPTY = 4 };
+
+void print_child_node_kind(const thrust::host_vector<int> &child_node_kind)
+{
+  std::cout << "child_node_kind:\n";
+  for (int i = 0 ; i < child_node_kind.size() ; ++i)
+  {
+    std::cout << std::setw(4) << i << ": [ ";
+    std::cout << std::setw(5) << std::right;
+    switch (child_node_kind[i])
+    {
+    case EMPTY:
+      std::cout << "EMPTY ]";
+      break;
+    case LEAF:
+      std::cout << "LEAF ]";
+      break;
+    case NODE:
+      std::cout << "NODE ]";
+      break;
+    default:
+      std::cout << "ERROR ]";
+    }
+    std::cout << std::endl;
+  }
+  std::cout << std::endl;
+}
+
+void print_child_enumeration(const thrust::host_vector<int> &child_node_kind,
+                             const thrust::host_vector<int> &nodes_on_this_level,
+                             const thrust::host_vector<int> &leaves_on_this_level)
+{
+  std::cout << "Node/leaf enumeration:\n      [ nodeid leafid ]\n";
+  for (int i = 0 ; i < child_node_kind.size() ; ++i)
+  {
+    std::cout << std::setw(4) << i << ": [ ";
+    switch (child_node_kind[i])
+    {
+    case EMPTY:
+      std::cout << std::setw(4) << "." << "   " << std::setw(4) << "." << "   ]";
+      break;
+    case LEAF:
+      std::cout << std::setw(4) << "." << "   " << std::setw(4) << leaves_on_this_level[i] << "   ]";
+      break;
+    case NODE:
+      std::cout << std::setw(4) << nodes_on_this_level[i] << "   " << std::setw(4) << "." << "   ]";
+      break;
+    }
+    std::cout << std::endl;
+  }
+  std::cout << std::endl;
+}
+
 void print_nodes(const thrust::host_vector<int> &nodes)
 {
   std::cout << "Quadtree nodes:\n";

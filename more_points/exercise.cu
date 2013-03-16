@@ -12,9 +12,6 @@
 #include <algorithm>
 #include "util.h"
 
-// Markers
-enum { NODE = 1, LEAF = 2, EMPTY = 4 };
-
 // Utility functions to encode leaves and children in single int
 // are defined in util.h:
 //   bool is_empty(int id);
@@ -270,19 +267,7 @@ void build_tree(const std::vector<int> &tags,
     std::cout << "*** BUILDING LEVEL " << std::setw(4) << level << " *\n";
     std::cout << "*************************\n";
 
-    std::cout << "Active nodes:\n      ";
-    for (int i = 1 ; i <= max_level ; ++i)
-    {
-      std::cout << "xy ";
-    }
-    std::cout << std::endl;
-    for (int i = 0 ; i < active_nodes.size() ; ++i)
-    {
-      std::cout << std::setw(4) << i << ": ";
-      print_tag(active_nodes[i], max_level);
-      std::cout << std::endl;
-    }
-    std::cout << std::endl;
+    print_active_nodes(active_nodes, max_level);
 
     /******************************************
      * 1. Calculate children                  *
@@ -294,19 +279,7 @@ void build_tree(const std::vector<int> &tags,
 
     compute_child_tag_masks(active_nodes, level, max_level, children);
 
-    std::cout << "Children:\n      ";
-    for (int i = 1 ; i <= max_level ; ++i)
-    {
-      std::cout << "xy ";
-    }
-    std::cout << std::endl;
-    for (int i = 0 ; i < children.size() ; ++i)
-    {
-      std::cout << std::setw(4) << i << ": ";
-      print_tag(children[i], max_level);
-      std::cout << std::endl;
-    }
-    std::cout << std::endl;
+    print_children(children, max_level);
 
     /******************************************
      * 2. Determine interval for each child   *
@@ -320,16 +293,7 @@ void build_tree(const std::vector<int> &tags,
     // Locate lower and upper bounds for points in each quadrant
     find_child_bounds(tags, children, level, max_level, lower_bounds, upper_bounds);
 
-    std::cout << "Child bounds:\n      [ lower upper count ]\n";
-    for (int i = 0 ; i < children.size() ; ++i)
-    {
-      std::cout << std::setw(4) << i << ": [ ";
-      std::cout << std::setw(4) << lower_bounds[i] << "  ";
-      std::cout << std::setw(4) << upper_bounds[i] << "  ";
-      std::cout << std::setw(4) << upper_bounds[i] - lower_bounds[i] << "  ]";
-      std::cout << std::endl;
-    }
-    std::cout << std::endl;
+    print_child_bounds(lower_bounds, upper_bounds);
 
     /******************************************
      * 3. Mark each child as empty/leaf/node  *
@@ -341,28 +305,7 @@ void build_tree(const std::vector<int> &tags,
 
     classify_children(children, lower_bounds, upper_bounds, level, max_level, threshold, child_node_kind);
 
-    std::cout << "child_node_kind:\n";
-    for (int i = 0 ; i < children.size() ; ++i)
-    {
-      std::cout << std::setw(4) << i << ": [ ";
-      std::cout << std::setw(5) << std::right;
-      switch (child_node_kind[i])
-      {
-      case EMPTY:
-        std::cout << "EMPTY ]";
-        break;
-      case LEAF:
-        std::cout << "LEAF ]";
-        break;
-      case NODE:
-        std::cout << "NODE ]";
-        break;
-      default:
-        std::cout << "ERROR ]";
-      }
-      std::cout << std::endl;
-    }
-    std::cout << std::endl;
+    print_child_node_kind(child_node_kind);
 
     /******************************************
      * 4. Enumerate nodes and leaves          *
@@ -377,25 +320,7 @@ void build_tree(const std::vector<int> &tags,
     std::pair<int,int> num_nodes_and_leaves_on_this_level =
       enumerate_nodes_and_leaves(child_node_kind, nodes_on_this_level, leaves_on_this_level);
 
-    std::cout << "Node/leaf enumeration:\n      [ nodeid leafid ]\n";
-    for (int i = 0 ; i < children.size() ; ++i)
-    {
-      std::cout << std::setw(4) << i << ": [ ";
-      switch (child_node_kind[i])
-      {
-      case EMPTY:
-        std::cout << std::setw(4) << "." << "   " << std::setw(4) << "." << "   ]";
-        break;
-      case LEAF:
-        std::cout << std::setw(4) << "." << "   " << std::setw(4) << leaves_on_this_level[i] << "   ]";
-        break;
-      case NODE:
-        std::cout << std::setw(4) << nodes_on_this_level[i] << "   " << std::setw(4) << "." << "   ]";
-        break;
-      }
-      std::cout << std::endl;
-    }
-    std::cout << std::endl;
+    print_child_enumeration(child_node_kind, nodes_on_this_level, leaves_on_this_level);
 
     /******************************************
      * 5. Add the children to the node list   *
