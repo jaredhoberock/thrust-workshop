@@ -227,6 +227,35 @@ void classify_children(const thrust::device_vector<int> &children,
 }
 
 
+std::pair<int,int> enumerate_nodes_and_leaves(const thrust::device_vector<int> &child_node_kind,
+                                              thrust::device_vector<int> &nodes_on_this_level,
+                                              thrust::device_vector<int> &leaves_on_this_level)
+{
+  // Enumerate nodes at this level
+  thrust::transform_exclusive_scan(child_node_kind.begin(), 
+                                   child_node_kind.end(), 
+                                   nodes_on_this_level.begin(), 
+                                   is_a<NODE>(), 
+                                   0, 
+                                   thrust::plus<int>());
+  
+  // Enumerate leaves at this level
+  thrust::transform_exclusive_scan(child_node_kind.begin(), 
+                                   child_node_kind.end(), 
+                                   leaves_on_this_level.begin(), 
+                                   is_a<LEAF>(), 
+                                   0, 
+                                   thrust::plus<int>());
+
+  std::pair<int,int> num_nodes_and_leaves_on_this_level;
+
+  num_nodes_and_leaves_on_this_level.first = nodes_on_this_level.back() + (child_node_kind.back() == NODE ? 1 : 0);
+  num_nodes_and_leaves_on_this_level.second = leaves_on_this_level.back() + (child_node_kind.back() == LEAF ? 1 : 0);
+
+  return num_nodes_and_leaves_on_this_level;
+}
+
+
 void build_tree(const thrust::device_vector<int> &tags,
                 const bbox &bounds,
                 size_t max_level,
@@ -342,26 +371,12 @@ void build_tree(const thrust::device_vector<int> &tags,
      ******************************************/
 
     // Enumerate the nodes and leaves at this level
-    thrust::device_vector<int> level_nodes(child_node_kind.size());
-    thrust::device_vector<int> level_leaves(child_node_kind.size());
+    thrust::device_vector<int> leaves_on_this_level(child_node_kind.size());
+    thrust::device_vector<int> nodes_on_this_level(child_node_kind.size());
 
-    // Enumerate nodes at this level
-    thrust::transform_exclusive_scan(child_node_kind.begin(), 
-                                     child_node_kind.end(), 
-                                     level_nodes.begin(), 
-                                     is_a<NODE>(), 
-                                     0, 
-                                     thrust::plus<int>());
-    int num_level_nodes = level_nodes.back() + (child_node_kind.back() == NODE ? 1 : 0);
-
-    // Enumerate leaves at this level
-    thrust::transform_exclusive_scan(child_node_kind.begin(), 
-                                     child_node_kind.end(), 
-                                     level_leaves.begin(), 
-                                     is_a<LEAF>(), 
-                                     0, 
-                                     thrust::plus<int>());
-    int num_level_leaves = level_leaves.back() + (child_node_kind.back() == LEAF ? 1 : 0);
+    // Enumerate nodes and leaves at this level
+    std::pair<int,int> num_nodes_and_leaves_on_this_level =
+      enumerate_nodes_and_leaves(child_node_kind, nodes_on_this_level, leaves_on_this_level);
 
     std::cout << "Node/leaf enumeration:\n      [ nodeid leafid ]\n";
     for(int i = 0 ; i < children.size() ; ++i)
@@ -373,10 +388,10 @@ void build_tree(const thrust::device_vector<int> &tags,
         std::cout << std::setw(4) << "." << "   " << std::setw(4) << "." << "   ]";
         break;
       case LEAF:
-        std::cout << std::setw(4) << "." << "   " << std::setw(4) << level_leaves[i] << "   ]";
+        std::cout << std::setw(4) << "." << "   " << std::setw(4) << leaves_on_this_level[i] << "   ]";
         break;
       case NODE:
-        std::cout << std::setw(4) << level_nodes[i] << "   " << std::setw(4) << "." << "   ]";
+        std::cout << std::setw(4) << nodes_on_this_level[i] << "   " << std::setw(4) << "." << "   ]";
         break;
       }
       std::cout << std::endl;
@@ -392,10 +407,10 @@ void build_tree(const thrust::device_vector<int> &tags,
 
     thrust::transform(thrust::make_zip_iterator(
                           thrust::make_tuple(
-                              child_node_kind.begin(), level_nodes.begin(), level_leaves.begin())),
+                              child_node_kind.begin(), nodes_on_this_level.begin(), leaves_on_this_level.begin())),
                       thrust::make_zip_iterator(
                           thrust::make_tuple(
-                              child_node_kind.end(), level_nodes.end(), level_leaves.end())),
+                              child_node_kind.end(), nodes_on_this_level.end(), leaves_on_this_level.end())),
                       nodes.begin() + num_nodes,
                       write_nodes(num_nodes + 4 * num_active_nodes, num_leaves));
 
@@ -409,7 +424,7 @@ void build_tree(const thrust::device_vector<int> &tags,
      ******************************************/
 
     // Add child leaves to the list of leaves
-    leaves.resize(num_leaves + num_level_leaves);
+    leaves.resize(num_leaves + num_nodes_and_leaves_on_this_level.second);
     thrust::scatter_if(thrust::make_transform_iterator(
                            thrust::make_zip_iterator(
                                thrust::make_tuple(lower_bounds.begin(), upper_bounds.begin())),
@@ -418,13 +433,13 @@ void build_tree(const thrust::device_vector<int> &tags,
                            thrust::make_zip_iterator(
                                thrust::make_tuple(lower_bounds.end(), upper_bounds.end())),
                            make_leaf()),
-                       level_leaves.begin(),
+                       leaves_on_this_level.begin(),
                        child_node_kind.begin(),
                        leaves.begin() + num_leaves,
                        is_a<LEAF>());
 
     // Update the number of leaves
-    num_leaves += num_level_leaves;
+    num_leaves += num_nodes_and_leaves_on_this_level.second;
 
     print_leaves(leaves);
 
@@ -433,7 +448,7 @@ void build_tree(const thrust::device_vector<int> &tags,
      ******************************************/
     
     // Set active nodes for the next level to be all the childs nodes from this level
-    active_nodes.resize(num_level_nodes);
+    active_nodes.resize(num_nodes_and_leaves_on_this_level.first);
 
     thrust::copy_if(children.begin(),
                     children.end(),
@@ -442,7 +457,7 @@ void build_tree(const thrust::device_vector<int> &tags,
                     is_a<NODE>());
 
     // Update the number of active nodes.
-    num_active_nodes = num_level_nodes;
+    num_active_nodes = num_nodes_and_leaves_on_this_level.first;
   }
 }
 
