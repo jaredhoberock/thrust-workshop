@@ -2,6 +2,7 @@
 #include <thrust/tabulate.h>
 #include <thrust/random.h>
 #include <thrust/transform.h>
+#include <thrust/transform_scan.h>
 #include <thrust/sort.h>
 #include <thrust/reduce.h>
 #include <thrust/binary_search.h>

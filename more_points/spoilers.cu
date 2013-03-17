@@ -74,6 +74,7 @@ void sort_points_by_tag(thrust::device_vector<int> &tags, thrust::device_vector<
 }
 
 
+// For a given child at a given level, return the lowest tag in the branch
 struct child_index_to_tag_mask
 {
   int level, max_level;
@@ -128,6 +129,7 @@ void find_child_bounds(const thrust::device_vector<int> &tags,
 }
 
 
+// Classify a node as empty, leaf or node
 struct classify_node
 {
   int threshold;
