@@ -328,7 +328,7 @@ void build_tree(const thrust::device_vector<int> &tags,
   thrust::device_vector<int> active_nodes(1,0);
 
   // Build the tree one level at a time, starting at the root
-  for(int level = 1 ; !active_nodes.empty() && level <= max_level ; ++level)
+  for (int level = 1 ; !active_nodes.empty() && level <= max_level ; ++level)
   {
     std::cout << "\n\n\n*************************\n";
     std::cout << "*** BUILDING LEVEL " << std::setw(4) << level << " *\n";

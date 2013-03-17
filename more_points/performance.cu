@@ -337,7 +337,6 @@ void build_tree(const thrust::device_vector<int> &tags,
 
     // New children: 4 quadrants per active node = 4 children
     thrust::device_vector<int> children(4*active_nodes.size());
-
     compute_child_tag_masks(active_nodes, level, max_level, children);
 
     /******************************************
@@ -347,7 +346,6 @@ void build_tree(const thrust::device_vector<int> &tags,
     // For each child we need interval bounds
     thrust::device_vector<int> lower_bounds(children.size());
     thrust::device_vector<int> upper_bounds(children.size());
-
     find_child_bounds(tags, children, level, max_level, lower_bounds, upper_bounds);
 
     /******************************************
@@ -363,8 +361,8 @@ void build_tree(const thrust::device_vector<int> &tags,
      ******************************************/
 
     // Enumerate the nodes and leaves at this level
-    thrust::device_vector<int> nodes_on_this_level(child_node_kind.size());
     thrust::device_vector<int> leaves_on_this_level(child_node_kind.size());
+    thrust::device_vector<int> nodes_on_this_level(child_node_kind.size());
 
     // Enumerate nodes and leaves at this level
     std::pair<int,int> num_nodes_and_leaves_on_this_level =
@@ -385,9 +383,8 @@ void build_tree(const thrust::device_vector<int> &tags,
     /******************************************
      * 7. Set the nodes for the next level    *
      ******************************************/
-    
-    // Set active nodes for the next level to be all the childs nodes from this level
-    active_nodes.resize(num_nodes_and_leaves_on_this_level.first);
+
+    activate_nodes_for_next_level(children, child_node_kind, num_nodes_and_leaves_on_this_level.first, active_nodes);
   }
 }
 
