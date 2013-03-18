@@ -135,13 +135,9 @@ struct classify_node
   
   classify_node(int threshold, int last_level) : threshold(threshold), last_level(last_level) {}
 
-  template <typename tuple_type>
   inline __device__ __host__
-  int operator()(const tuple_type &t) const
+  int operator()(int lower_bound, int upper_bound) const
   {
-    int lower_bound = thrust::get<0>(t);
-    int upper_bound = thrust::get<1>(t);
-    
     int count = upper_bound - lower_bound;
     if (count == 0)
     {
@@ -167,10 +163,8 @@ void classify_children(const thrust::device_vector<int> &children,
                        int threshold,
                        thrust::device_vector<int> &child_node_kind)
 {
-  thrust::transform(thrust::make_zip_iterator(
-                        thrust::make_tuple(lower_bounds.begin(), upper_bounds.begin())),
-                    thrust::make_zip_iterator(
-                        thrust::make_tuple(lower_bounds.end(), upper_bounds.end())),
+  thrust::transform(lower_bounds.begin(), lower_bounds.end(),
+                    upper_bounds.begin(),
                     child_node_kind.begin(),
                     classify_node(threshold, level == max_level));
 }
