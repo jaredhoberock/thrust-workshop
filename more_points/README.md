@@ -296,5 +296,168 @@ and produces two arrays: `nodes` and `leaves`.
 
 Each element of the `nodes` array is an index which identifies whether the node is empty, or whether it
 refers to a terminal leaf, or an interior node. When it is a leaf, the index encodes where in the `leaves` array it lives.
-When it is a node, 
+When it is an interior node, it stores the index of its first child so that we can find it later when we traverse the tree.
+
+As we build the tree level by level, we'll keep a list of "active" nodes. These
+are the tags of the nodes on the current level. In each iteration, our job is
+to search for and construct nodes for their children.
+
+We start out at the root. The root of the tree has a tag of `0`:
+
+    std::vector<int> active_nodes(1,0);
+
+# Masking off the Search
+
+In order to search through the `tags` array for the `active_nodes`'s children,
+we need to "mask off" the search area of interest. We do that by taking
+each tag in the `active_nodes` array, and producing a mask. Geometrically,
+this tag mask corresponds to a quarter of the box spanned by the active
+node. Since there are four quarters of the box, we create room for four `children` for each of the `active_nodes`, and call `compute_child_tag_masks`:
+
+    std::vector<int> children(4 * active_nodes.size());
+    compute_child_tag_masks(active_nodes, level, max_level, children);
+
+Inside, `compute_child_tag_masks` looks like this:
+
+    void compute_child_tag_masks(const std::vector<int> &active_nodes,
+                                 int level,
+                                 int max_level,
+                                 std::vector<int> &children)
+    {
+      for (int i = 0 ; i < active_nodes.size() ; ++i)
+      {
+        int tag = active_nodes[i];
+        children[4*i+0] = child_tag_mask(tag, 0, level, max_level);
+        children[4*i+1] = child_tag_mask(tag, 1, level, max_level);
+        children[4*i+2] = child_tag_mask(tag, 2, level, max_level);
+        children[4*i+3] = child_tag_mask(tag, 3, level, max_level);
+      }
+    }
+
+For each of the `active_nodes`, we get its `tag` and call the helper function
+`child_tag_mask` to compute a mask for each one of its four `children`. To
+parallelize this operation with Thrust, we'll need to find a way to "expand" a collection
+of items, as the output (`children`) is four times the size of the input
+(`active_nodes`). In other words, it won't be a simple call to `thrust::transform`.
+
+Instead of parallelizing over the elements of the input array, an alternative
+approach could parallelize over the output. For each output element in
+`children`, we could look up the corresponding input element in `active_nodes`.
+If we know the index `idx` of each output element from `children`, we can get
+the index of the corresponding input element easily -- it's just `idx/4`.
+Luckily, we know how to generate indices for each output element --
+`thrust::tabulate` does this for us. Since the interface of `thrust::tabulate`
+only takes a single output range, we'll have to go "out of band" to get the tag
+of each child's parent node.
+
+Let's look at the whole function, which we've ported to use `thrust::device_vector`:
+
+   struct child_index_to_tag_mask
+   {
+     int level, max_level;
+     thrust::device_ptr<const int> nodes;
+     
+     child_index_to_tag_mask(int lvl, int max_lvl, thrust::device_ptr<const int> nodes) : level(lvl), max_level(max_lvl), nodes(nodes) {}
+     
+     inline __device__ __host__
+     int operator()(int idx) const
+     {
+       int tag = nodes[idx/4];
+       int which_child = (idx&3);
+       return child_tag_mask(tag, which_child, level, max_level);
+     }
+   };
+
+   void compute_child_tag_masks(const thrust::device_vector<int> &active_nodes,
+                                int level,
+                                int max_level,
+                                thrust::device_vector<int> &children)
+   {
+     thrust::tabulate(children.begin(), children.end(),
+                      child_index_to_tag_mask(level, max_level, active_nodes.data()));
+   }
+
+We call `thrust::tabulate` with `children` as our output array and use
+`child_index_to_tag_mask` as our functor.  In addition to `level`, and
+`max_level`, which are needed to call the helper function `child_tag_mask`
+inside the functor, we also use the special member function
+`active_nodes.data()` to pass a pointer to the `active_nodes` array into our
+functor. This is how we go out of band into the `active_nodes` array -- even
+though `thrust::tabulate` doesn't know about `active_nodes`, we can still use
+it as input!
+
+`active_nodes.data()` returns a special type of pointer called a
+`thrust::device_ptr` which keeps track of the fact that the data it points to
+lives on the GPU. This makes accessing data on the GPU easy.
+
+Inside of `child_index_to_tag_mask`, after receiving the `idx` of the child, we
+first look into the `nodes` array to find the `tag` of the parent node. Next,
+we use `idx` again to figure out which child of the node (0,1,2, or 3)
+we're computing. Finally, we're able to call `child_index_to_tag_mask` just
+like the sequential version of the code.
+
+# Searching for Children
+
+Now that we know where to look, we can search for each active node's list of children. We'll
+represent the lists as a couple of arrays:
+
+    std::vector<int> lower_bounds(children.size());
+    std::vector<int> upper_bounds(children.size());
+
+The children we'll search for live in the `tags` array. For each element of
+`active_nodes`, `lower_bounds` stores the index of its first child inside of
+`tags`. Likewise, `upper_bounds` stores the index of the tag one past the last
+child. In other words, for each element of `active_nodes`, we'll have the
+boundaries of a contiguous span of elements inside `tags`.
+
+Inside of `find_child_bounds`, we do the search:
+
+    void find_child_bounds(const std::vector<int> &tags,
+                           const std::vector<int> &children,
+                           int level,
+                           int max_level,
+                           std::vector<int> &lower_bounds,
+                           std::vector<int> &upper_bounds)
+    {
+      int length = (1 << (max_level - level) * 2) - 1;
+      for (int i = 0 ; i < children.size() ; ++i)
+      {
+        lower_bounds[i] = std::lower_bound(tags.begin(), tags.end(), children[i]) - tags.begin();
+        
+        upper_bounds[i] = std::upper_bound(tags.begin(), tags.end(), children[i] + length) - tags.begin();
+      }
+    }
+
+For each mask element of `children`, we do a binary search in the `tags` array to discover the indices of the first and last child.
+In the C++ standard library, these searches are implemented with `std::lower_bound` and `std::upper_bound`.
+
+Parallelizing this operation is pretty simple, as Thrust provides "vectorized" versions of `lower_bound` and `upper_bound`. We split the `for` loop into two separate operations:
+
+    void find_child_bounds(const thrust::device_vector<int> &tags,
+                           const thrust::device_vector<int> &children,
+                           int level,
+                           int max_level,
+                           thrust::device_vector<int> &lower_bounds,
+                           thrust::device_vector<int> &upper_bounds)
+    {
+      thrust::lower_bound(tags.begin(),
+                          tags.end(),
+                          children.begin(),
+                          children.end(),
+                          lower_bounds.begin());
+      
+      int length = (1 << (max_level - level) * 2) - 1;
+    
+      using namespace thrust::placeholders;
+    
+      thrust::upper_bound(tags.begin(),
+                          tags.end(),
+                          thrust::make_transform_iterator(children.begin(), _1 + length),
+                          thrust::make_transform_iterator(children.end(), _1 + length),
+                          upper_bounds.begin());
+    }
+                           
+First, we call `thrust::lower_bound` to search the collection of `tags` for each element in the `children` collection.
+
+Next, to compute `upper_bounds`, we call `thrust::upper_bound` similarly. This time, to incorporate `length` into each element of `children`, we create a `transform_iterator` using a placeholder expression.
 
