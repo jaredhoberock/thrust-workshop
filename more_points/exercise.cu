@@ -198,7 +198,7 @@ void create_child_nodes(const std::vector<int> &child_node_kind,
       nodes[children_begin + i] = get_leaf_id(num_leaves + leaves_on_this_level[i]);
       break;
     case NODE:
-      nodes[children_begin + i] = children_begin + num_children + 4 * nodes_on_this_level[i];
+      nodes[children_begin + i] = nodes.size() + 4 * nodes_on_this_level[i];
       break;
     }
   }
