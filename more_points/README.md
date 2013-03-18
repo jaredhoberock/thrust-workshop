@@ -201,6 +201,8 @@ The only thing we need to do is introduce the `classify_point` functor whose job
 
 Now that each point has a spatial `tag`, we can organize them spatially just by sorting the `points` by their `tags`.
 
+Since sorting the `points` directly would destroy their original order, we'll introduce one level of indirection and sort their `indices` within the list instead.
+
 The sequential CPU code does it this way:
 
     struct compare_tags
@@ -212,7 +214,7 @@ The sequential CPU code does it this way:
       }
     };
 
-    void sort_points_by_tag(std::vector<int> &tags, std::vector<float2> &points)
+    void sort_points_by_tag(std::vector<int> &tags, std::vector<int> &indices)
     {
       // introduce a temporary array of pairs for sorting purposes
       std::vector<std::pair<int,int> > tag_index_pairs(num_points);
@@ -234,9 +236,10 @@ The sequential CPU code does it this way:
 
 Which is a pretty roundabout way of coaxing a key-value sort out of `std::sort`. With Thrust we can do it in parallel with just a call to `thrust::sort_by_key`:
 
-    void sort_points_by_tag(std::vector<int> &tags, std::vector<float2> &points)
+    void sort_points_by_tag(std::vector<int> &tags, std::vector<int> &indices)
     {
-      thrust::sort_by_key(tags.begin(), tags.end(), points.begin());
+      thrust::sequence(indices.begin(), indices.end());
+      thrust::sort_by_key(tags.begin(), tags.end(), indices.begin());
     }
 
 # Building the Tree
