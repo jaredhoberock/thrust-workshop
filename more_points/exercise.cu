@@ -114,8 +114,7 @@ void find_child_bounds(const std::vector<int> &tags,
 }
 
 
-void classify_children(const std::vector<int> &children,
-                       const std::vector<int> &lower_bounds,
+void classify_children(const std::vector<int> &lower_bounds,
                        const std::vector<int> &upper_bounds,
                        int level,
                        int max_level,
@@ -123,7 +122,7 @@ void classify_children(const std::vector<int> &children,
                        std::vector<int> &child_node_kind)
 {
   std::cout << "TODO: mark the children as nodes/leaves using thrust::transform\n";
-  for(int i = 0 ; i < children.size() ; ++i )
+  for(int i = 0 ; i < lower_bounds.size() ; ++i )
   {
     int count = upper_bounds[i] - lower_bounds[i];
     if(count == 0)
@@ -297,7 +296,7 @@ void build_tree(const std::vector<int> &tags,
     // Mark each child as either empty, a node, or a leaf
     std::cout << "TODO: move these markers to the GPU using thrust::device_vector\n";
     std::vector<int> child_node_kind(children.size(), 0);
-    classify_children(children, lower_bounds, upper_bounds, level, max_level, threshold, child_node_kind);
+    classify_children(lower_bounds, upper_bounds, level, max_level, threshold, child_node_kind);
 
     print_child_node_kind(child_node_kind);
 

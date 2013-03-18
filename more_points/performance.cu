@@ -158,8 +158,7 @@ struct classify_node
 };
 
 
-void classify_children(const thrust::device_vector<int> &children,
-                       const thrust::device_vector<int> &lower_bounds,
+void classify_children(const thrust::device_vector<int> &lower_bounds,
                        const thrust::device_vector<int> &upper_bounds,
                        int level,
                        int max_level,
@@ -350,7 +349,7 @@ void build_tree(const thrust::device_vector<int> &tags,
 
     // Mark each child as either empty, a node, or a leaf
     thrust::device_vector<int> child_node_kind(children.size(), 0);
-    classify_children(children, lower_bounds, upper_bounds, level, max_level, threshold, child_node_kind);
+    classify_children(lower_bounds, upper_bounds, level, max_level, threshold, child_node_kind);
 
     /******************************************
      * 4. Enumerate nodes and leaves          *
