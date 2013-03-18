@@ -398,17 +398,16 @@ like the sequential version of the code.
 
 # Searching for Children
 
-Now that we know where to look, we can search for each active node's list of children. We'll
+Now that we know where to look, we can search for the list of tags spanned or bound by each active node's children. We'll
 represent the lists as a couple of arrays:
 
     std::vector<int> lower_bounds(children.size());
     std::vector<int> upper_bounds(children.size());
 
-The children we'll search for live in the `tags` array. For each element of
-`active_nodes`, `lower_bounds` stores the index of its first child inside of
-`tags`. Likewise, `upper_bounds` stores the index of the tag one past the last
-child. In other words, for each element of `active_nodes`, we'll have the
-boundaries of a contiguous span of elements inside `tags`.
+For each element of `children`, `lower_bounds` stores the index of the first
+tag it spans inside of `tags`. Likewise, `upper_bounds` stores the index of the
+tag one past the last spanned. In other words, for each element of `children`,
+we'll have the boundaries of a contiguous span of elements inside `tags`.
 
 Inside of `find_child_bounds`, we do the search:
 
@@ -428,7 +427,7 @@ Inside of `find_child_bounds`, we do the search:
       }
     }
 
-For each mask element of `children`, we do a binary search in the `tags` array to discover the indices of the first and last child.
+For each mask element of `children`, we do a binary search in the `tags` array to discover the indices of the tags it spans.
 In the C++ standard library, these searches are implemented with `std::lower_bound` and `std::upper_bound`.
 
 Parallelizing this operation is pretty simple, as Thrust provides "vectorized" versions of `lower_bound` and `upper_bound`. We split the `for` loop into two separate operations:
@@ -459,5 +458,88 @@ Parallelizing this operation is pretty simple, as Thrust provides "vectorized" v
                            
 First, we call `thrust::lower_bound` to search the collection of `tags` for each element in the `children` collection.
 
-Next, to compute `upper_bounds`, we call `thrust::upper_bound` similarly. This time, to incorporate `length` into each element of `children`, we create a `transform_iterator` using a placeholder expression.
+Next, to compute `upper_bounds`, we call `thrust::upper_bound` similarly. This
+time, to incorporate `length` into each element of `children`, we create a
+`transform_iterator` using a placeholder expression.
+
+# Classification
+
+Now that we know for each child the sublist of of `tags` it spans, we can
+classify whether each child is empty, an interior node, or a terminal leaf of
+our tree. For each element of the `children` array, we'll store an `int` to keep track of its kind:
+
+    std::vector<int> child_node_kind(children.size(), 0);
+    classify_children(lower_bounds, upper_bounds, level, max_level, threshold, child_node_kind);
+
+Classifying each child is simple, as it only depends on the number of tag elements each
+child spans. The sequential code is just another `for` loop:
+
+    void classify_children(const std::vector<int> &lower_bounds,
+                           const std::vector<int> &upper_bounds,
+                           int level,
+                           int max_level,
+                           int threshold,
+                           std::vector<int> &child_node_kind)
+    {
+      for(int i = 0; i < upper_bounds.size(); ++i)
+      {
+        int count = upper_bounds[i] - lower_bounds[i];
+        if(count == 0)
+        {
+          child_node_kind[i] = EMPTY;
+        }
+        else if(level == max_level || count < threshold)
+        {
+          child_node_kind[i] = LEAF;
+        }
+        else
+        {
+          child_node_kind[i] = NODE;
+        }
+      }
+    }
+
+The number of tags (`count`) spanned by each child `i` is just the difference between that child's upper and lower bounds.
+An `EMPTY` child corresponds to a `count` of zero. Then, depending on the `threshold`, a child is either a `NODE` or a `LEAF`.
+
+We've parallelized so many of this kind of loop that it should be second nature by now. It's just `thrust::transform`:
+
+    struct classify_node
+    {
+      int threshold;
+      int last_level;
+      
+      classify_node(int threshold, int last_level) : threshold(threshold), last_level(last_level) {}
+    
+      inline __device__ __host__
+      int operator()(int lower_bound, int upper_bound) const
+      {
+        int count = upper_bound - lower_bound;
+        if (count == 0)
+        {
+          return EMPTY;
+        }
+        else if (last_level || count < threshold)
+        {
+          return LEAF;
+        }
+        else
+        {
+          return NODE;
+        }
+      }
+    };
+    
+    void classify_children(const thrust::device_vector<int> &lower_bounds,
+                           const thrust::device_vector<int> &upper_bounds,
+                           int level,
+                           int max_level,
+                           int threshold,
+                           thrust::device_vector<int> &child_node_kind)
+    {
+      thrust::transform(lower_bounds.begin(), lower_bounds.end(),
+                        upper_bounds.begin(),
+                        child_node_kind.begin(),
+                        classify_node(threshold, level == max_level));
+    }
 
