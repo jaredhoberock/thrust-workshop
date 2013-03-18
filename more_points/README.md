@@ -663,6 +663,6 @@ scan to `nodes_on_this_level`, which comes next. The next argument,
 `child_node_kind` which is a `NODE`, this functor will transform the input
 element into `true`.  Otherwise, it will return `false`. Next, we tell the
 scan that we want to start counting from `0`. Finally, we tell the scan
-how to sum two elements together: just do an integer `plus` operation. The
+how to sum two results from `is_a<NODE>()` together: just do an integer `plus` operation. The
 second call to `transform_exclusive_scan` for leaves is interpreted
 similarly.
