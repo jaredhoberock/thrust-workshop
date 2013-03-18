@@ -1,7 +1,3 @@
-# TL;DR
-
-XXX we can even build spatial data structures like trees in parallel!
-
 # More Points
 
 Now that we've had our [fun with points](../fun_with_points), it's time to get
@@ -308,7 +304,7 @@ We start out at the root. The root of the tree has a tag of `0`:
 
     std::vector<int> active_nodes(1,0);
 
-# Masking off the Search
+## Masking off the Search
 
 In order to search through the `tags` array for the `active_nodes`'s children,
 we need to "mask off" the search area of interest. We do that by taking
@@ -398,7 +394,7 @@ we use `idx` again to figure out which child of the node (0,1,2, or 3)
 we're computing. Finally, we're able to call `child_index_to_tag_mask` just
 like the sequential version of the code.
 
-# Searching for Children
+## Searching for Children
 
 Now that we know where to look, we can search for the list of tags spanned or bound by each active node's children. We'll
 represent the lists as a couple of arrays:
@@ -464,7 +460,7 @@ Next, to compute `upper_bounds`, we call `thrust::upper_bound` similarly. This
 time, to incorporate `length` into each element of `children`, we create a
 `transform_iterator` using a placeholder expression.
 
-# Classification
+## Classification
 
 Now that we know for each child the sublist of of `tags` it spans, we can
 classify whether each child is empty, an interior node, or a terminal leaf of
@@ -545,7 +541,7 @@ We've parallelized so many of this kind of loop that it should be second nature 
                         classify_node(threshold, level == max_level));
     }
 
-# Ranking Nodes and Leaves
+## Ranking Nodes and Leaves
 
 Now that we've classified each of this level's children as either nodes or
 leaves, we need to know for each node which node that it is. In other words, we
@@ -669,7 +665,7 @@ how to sum two results from `is_a<NODE>()` together: just do an integer `plus` o
 second call to `transform_exclusive_scan` for leaves is interpreted
 similarly.
 
-# Creating the Child Nodes
+## Creating the Child Nodes
 
 Now that we've done all the bookkeeping required, we can create new nodes to
 encode the children of the `active_nodes` of this level.  To do this, we'll
@@ -782,7 +778,7 @@ different index for each of the three parameters: `node_type`, `node_idx`, and
 `leaf_idx`. The rest of the functor body looks like the original body of the
 `for` loop.
 
-# Creating the Leaves
+## Creating the Leaves
 
 We're almost done with creating this level's nodes. However, some of these
 nodes are terminal leaves. For these, we'll need to encode which of our
@@ -898,4 +894,108 @@ Finally, we pass the position in the `leaves` array where the new children
 begin: this is at `leaves.begin + children_begin`.
 
 Phew!
+
+## Activating the Next Level
+
+To finish up the iteration, we need to activate the children which will become the parents of the next level.
+These nodes are simply the interior nodes we encountered on this level. 
+
+The sequential code simply copies to the `active_nodes` array those elements of `children` which are interior nodes:
+
+    void activate_nodes_for_next_level(const std::vector<int> &children,
+                                       const std::vector<int> &child_node_kind,
+                                       int num_nodes_on_this_level,
+                                       std::vector<int> &active_nodes)
+    {
+      active_nodes.resize(num_nodes_on_this_level);
+      
+      for(int i = 0, j = 0; i < children.size(); ++i)
+      {
+        if(child_node_kind[i] == NODE)
+        {
+          active_nodes[j++] = children[i];
+        }
+      }
+    }
+
+Hmm... the way we're using that `j` counter looks suspiciously similar to a
+prefix sum. However, in this case, we're not writing the value of the counter
+to an output array, we're using it to *index* into an output array. This kind
+of operation is sometimes called __stream compaction__ which is basically a
+prefix sum and scatter combined.
+
+With Thrust, we can implement a stream compaction operation using `thrust::copy_if`:
+
+    void activate_nodes_for_next_level(const thrust::device_vector<int> &children,
+                                       const thrust::device_vector<int> &child_node_kind,
+                                       int num_nodes_on_this_level,
+                                       thrust::device_vector<int> &active_nodes)
+    {
+      active_nodes.resize(num_nodes_on_this_level);
+      
+      thrust::copy_if(children.begin(),
+                      children.end(),
+                      child_node_kind.begin(),
+                      active_nodes.begin(),
+                      is_a<NODE>());
+    }
+
+Here, the idea is that we're going to copy an element from the input `children`
+array to the output `active_nodes` array only when the element satisfies a
+condition (kind of like `thrust::scatter_if`). Here, the condition is given by
+the `is_a<NODE>()` functor, which is applied to each element of the
+`child_node_kind` array. Each time an element of the `child_node_kind` array
+satisfies the functor, the corresponding element from `children` will get
+copied to `active_nodes`.
+
+And that's it! If we iterate these steps up to `max_level` while `active_nodes`
+still has work left in it, we'll arrive at a finished tree.
+
+# Performance
+
+Let's see how we did. [`performance.cu`](performance.cu) provides an
+instrumented version of the solution we can use for measuring its performance.
+Since we've built our solution using `thrust::device_vector`, it's easy to
+switch between building a program which targets the CPU or the GPU on the
+command line:
+
+    # build the cpu solution
+    $ scons cpu_performance
+    $ ./cpu_performance
+    Warming up...
+    
+    Timing...
+    
+    5.27696 millions of points generated and treeified per second.
+
+    # build the gpu solution
+    $ scons gpu_performance
+    $ ./gpu_performance
+    Warming up...
+    
+    Timing...
+    
+    144.16 millions of points generated and treeified per second.
+    
+For the GPU (an NVIDIA Tesla K20c) version, that's over 25 times the
+performance as the sequential version of the code running on the CPU (an Intel
+    Core i7 860).
+
+Substantial optimizations could probably still be made to both versions of the
+code. For example, some temporary `device_vector`s we introduced could probably
+be replaced with `transform_iterator`s which don't incur memory storage
+overhead. Additionally, some opportunities for fusion exist. For example, both
+of our calls to `thrust::transform_exclusive_scan` could be fused together into
+a single scan with some clever use of `zip_iterator`s. But those are exercises
+left to the reader.
+
+# Wrapping Up
+
+In working through this example, we saw how fundamental parallel algorithms
+could be used to accelerate the construction and manipulation of a complex data
+structure. However, parallelization can come at a cost in code complexity. The
+linear representation of this example is a far cry from the classical
+organization of a tree data structure via a recursive arrangement of nodes.
+Often, parallelization involves rethinking the organization of our data to make
+operating on it in parallel more convenient.
 
