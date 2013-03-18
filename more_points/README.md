@@ -61,7 +61,9 @@ First, we'll generate some random 2D points in parallel just like we did in the 
 
     generate_random_points(points);
 
-We'll keep our `points` data on the CPU in a `std::vector` for now. Later, we'll move it to the GPU with a `thrust::device_vector`. Inside of `generate_random_points` is just a call to `thrust::tabulate` which produces random points.
+Inside of `generate_random_points` is just a call to `thrust::tabulate` which produces random points.
+
+In the sequential version of the code we keep our `points` data in a `std::vector`. Now that we know about the magic of `thrust::device_vector`, we'll port instances of `std::vector` to `thrust::device_vector` as we go along.
 
 ## Bounding the Points
 
@@ -130,7 +132,7 @@ To implement this bounding box reduction, we'll introduce a functor which merges
 
 Internally, the way the reduction will work is to create, for each point, a single `bbox` which will bound only that point. Then, the reduction will merge `bbox`s in pairs until finally a single one which bounds everything results:
 
-    bbox compute_bounding_box(const std::vector<float2> &points)
+    bbox compute_bounding_box(const thrust::device_vector<float2> &points)
     {
       // we pass an empty bounding box for thrust::reduce's init parameter
       bbox empty;
@@ -186,7 +188,7 @@ This operation looks a lot like the point classification problem from the [`fun_
       }
     };
 
-    void compute_tags(const std::vector<float2> &points,
+    void compute_tags(const thrust::device_vector<float2> &points,
                       const bbox &bounds,
                       std::vector<int> &tags)
     {
@@ -236,7 +238,7 @@ The sequential CPU code does it this way:
 
 Which is a pretty roundabout way of coaxing a key-value sort out of `std::sort`. With Thrust we can do it in parallel with just a call to `thrust::sort_by_key`:
 
-    void sort_points_by_tag(std::vector<int> &tags, std::vector<int> &indices)
+    void sort_points_by_tag(thrust::device_vector<int> &tags, thrust::device_vector<int> &indices)
     {
       thrust::sequence(indices.begin(), indices.end());
       thrust::sort_by_key(tags.begin(), tags.end(), indices.begin());
@@ -352,30 +354,30 @@ of each child's parent node.
 
 Let's look at the whole function, which we've ported to use `thrust::device_vector`:
 
-   struct child_index_to_tag_mask
-   {
-     int level, max_level;
-     thrust::device_ptr<const int> nodes;
-     
-     child_index_to_tag_mask(int lvl, int max_lvl, thrust::device_ptr<const int> nodes) : level(lvl), max_level(max_lvl), nodes(nodes) {}
-     
-     inline __device__ __host__
-     int operator()(int idx) const
-     {
-       int tag = nodes[idx/4];
-       int which_child = (idx&3);
-       return child_tag_mask(tag, which_child, level, max_level);
-     }
-   };
-
-   void compute_child_tag_masks(const thrust::device_vector<int> &active_nodes,
-                                int level,
-                                int max_level,
-                                thrust::device_vector<int> &children)
-   {
-     thrust::tabulate(children.begin(), children.end(),
-                      child_index_to_tag_mask(level, max_level, active_nodes.data()));
-   }
+    struct child_index_to_tag_mask
+    {
+      int level, max_level;
+      thrust::device_ptr<const int> nodes;
+      
+      child_index_to_tag_mask(int lvl, int max_lvl, thrust::device_ptr<const int> nodes) : level(lvl), max_level(max_lvl), nodes(nodes) {}
+      
+      inline __device__ __host__
+      int operator()(int idx) const
+      {
+        int tag = nodes[idx/4];
+        int which_child = (idx&3);
+        return child_tag_mask(tag, which_child, level, max_level);
+      }
+    };
+    
+    void compute_child_tag_masks(const thrust::device_vector<int> &active_nodes,
+                                 int level,
+                                 int max_level,
+                                 thrust::device_vector<int> &children)
+    {
+      thrust::tabulate(children.begin(), children.end(),
+                       child_index_to_tag_mask(level, max_level, active_nodes.data()));
+    }
 
 We call `thrust::tabulate` with `children` as our output array and use
 `child_index_to_tag_mask` as our functor.  In addition to `level`, and
@@ -666,3 +668,234 @@ scan that we want to start counting from `0`. Finally, we tell the scan
 how to sum two results from `is_a<NODE>()` together: just do an integer `plus` operation. The
 second call to `transform_exclusive_scan` for leaves is interpreted
 similarly.
+
+# Creating the Child Nodes
+
+Now that we've done all the bookkeeping required, we can create new nodes to
+encode the children of the `active_nodes` of this level.  To do this, we'll
+append to the end of our `nodes` array a new entry for each child. The value of
+each entry will encode the kind of node it is, along with information about
+where to find the data associated with it.
+
+The sequential code looks like this:
+
+    void create_child_nodes(const std::vector<int> &child_node_kind,
+                            const std::vector<int> &nodes_on_this_level,
+                            const std::vector<int> &leaves_on_this_level,
+                            int num_leaves,
+                            std::vector<int> &nodes)
+    {
+      int num_children = child_node_kind.size();
+    
+      int children_begin = nodes.size();
+      nodes.resize(nodes.size() + num_children);
+      
+      for(int i = 0 ; i < num_children; ++i)
+      {
+        switch(child_node_kind[i])
+        {
+        case EMPTY:
+          nodes[children_begin + i] = get_empty_id();
+          break;
+        case LEAF:
+          nodes[children_begin + i] = get_leaf_id(num_leaves + leaves_on_this_level[i]);
+          break;
+        case NODE:
+          nodes[children_begin + i] = nodes.size() + 4 * nodes_on_this_level[i];
+          break;
+        }
+      }
+    }
+
+We begin by reserving space for each new child entry at the end of the `nodes`
+array. Before resizing the array, we note the index which marks the beginning
+of the new list of child nodes. To create each new entry, we loop through the
+new nodes, and depending on the kind of node it is, we encode some bookkeeping
+information: either an empty node id, a leaf id, or the index of an interior
+node's first child.
+
+Of course, this is another job for `thrust::transform`:
+
+    struct write_nodes
+    {
+      int num_nodes, num_leaves;
+    
+      write_nodes(int num_nodes, int num_leaves) : 
+        num_nodes(num_nodes), num_leaves(num_leaves) 
+      {}
+    
+      template <typename tuple_type>
+      inline __device__ __host__
+      int operator()(const tuple_type &t) const
+      {
+        int node_type = thrust::get<0>(t);
+        int node_idx  = thrust::get<1>(t);
+        int leaf_idx  = thrust::get<2>(t);
+    
+        if (node_type == EMPTY)
+        {
+          return get_empty_id();
+        }
+        else if (node_type == LEAF)
+        {
+          return get_leaf_id(num_leaves + leaf_idx);
+        }
+        else
+        {
+          return num_nodes + 4 * node_idx;
+        }
+      }
+    };
+
+    void create_child_nodes(const thrust::device_vector<int> &child_node_kind,
+                            const thrust::device_vector<int> &nodes_on_this_level,
+                            const thrust::device_vector<int> &leaves_on_this_level,
+                            int num_leaves,
+                            thrust::device_vector<int> &nodes)
+    {
+      int num_children = child_node_kind.size();
+    
+      int children_begin = nodes.size();
+      nodes.resize(nodes.size() + num_children);
+      
+      thrust::transform(thrust::make_zip_iterator(
+                            thrust::make_tuple(
+                                child_node_kind.begin(), nodes_on_this_level.begin(), leaves_on_this_level.begin())),
+                        thrust::make_zip_iterator(
+                            thrust::make_tuple(
+                                child_node_kind.end(), nodes_on_this_level.end(), leaves_on_this_level.end())),
+                        nodes.begin() + children_begin,
+                        write_nodes(nodes.size(), num_leaves));
+    }
+
+The interesting thing about this transformation is that it requires three
+inputs. Since `thrust::transform` only supports transformations with up to two
+inputs, we "fool" it by zipping together three inputs with a `zip_iterator`.
+
+To create a `zip_iterator`, we call `thrust::make_zip_iterator` with an
+argument which is a `tuple` of the iterators we want to zip together. To make
+the `tuple` of iterators, we use `thrust::make_tuple`.
+
+The functor we pass to `thrust::transform`, `write_nodes`, unpacks the `tuple`
+it receives using the special function `thrust::get<i>`. We call it once with a
+different index for each of the three parameters: `node_type`, `node_idx`, and
+`leaf_idx`. The rest of the functor body looks like the original body of the
+`for` loop.
+
+# Creating the Leaves
+
+We're almost done with creating this level's nodes. However, some of these
+nodes are terminal leaves. For these, we'll need to encode which of our
+original points they contain. Remember, for each child, we stored indices into
+the list of points they bounded inside the `lower_bounds` and `upper_bounds`
+arrays. For each node which is a leaf, we'll append these bounds into an
+auxiliary array, `leaves`.
+
+Here's the sequential code:
+
+    void create_leaves(const std::vector<int> &child_node_kind,
+                       const std::vector<int> &leaves_on_this_level,
+                       const std::vector<int> &lower_bounds,
+                       const std::vector<int> &upper_bounds,
+                       int num_leaves_on_this_level,
+                       std::vector<int2> &leaves)
+    {
+      int children_begin = leaves.size();
+    
+      leaves.resize(leaves.size() + num_leaves_on_this_level);
+      
+      for(int i = 0; i < child_node_kind.size() ; ++i)
+      {
+        if(child_node_kind[i] == LEAF)
+        {
+          leaves[children_begin + leaves_on_this_level[i]] = make_int2(lower_bounds[i], upper_bounds[i]);
+        }
+      }
+    }
+
+We begin by noting where in the `leaves` array the new children begin. Next, we
+reserve enough room in the `leaves` array to append all the new children.
+Finally, for each child node which is a leaf, we copy to an entry in `leaves`
+an `int2` which encodes the range of points the leaf spans. This is just the
+pair of bounds.
+
+The position of each new leaf is encoded by the `leaves_on_this_level` array we
+computed previously using a prefix sum. This kind of write is indirect: to find
+the location within `leaves` to write to, we do a lookup into
+`leaves_on_this_level`. We often call this kind of indirect write a __scatter__
+operation.
+
+We can parallelize this operation using `thrust::scatter_if`:
+
+    struct make_leaf
+    {
+      typedef int2 result_type;
+      template <typename tuple_type>
+      inline __device__ __host__
+      int2 operator()(const tuple_type &t) const
+      {
+        int x = thrust::get<0>(t);
+        int y = thrust::get<1>(t);
+    
+        return make_int2(x, y);
+      }
+    };
+
+    void create_leaves(const thrust::device_vector<int> &child_node_kind,
+                       const thrust::device_vector<int> &leaves_on_this_level,
+                       const thrust::device_vector<int> &lower_bounds,
+                       const thrust::device_vector<int> &upper_bounds,
+                       int num_leaves_on_this_level,
+                       thrust::device_vector<int2> &leaves)
+    {
+      int children_begin = leaves.size();
+    
+      leaves.resize(leaves.size() + num_leaves_on_this_level);
+    
+      thrust::scatter_if(thrust::make_transform_iterator(
+                             thrust::make_zip_iterator(
+                                 thrust::make_tuple(lower_bounds.begin(), upper_bounds.begin())),
+                             make_leaf()),
+                         thrust::make_transform_iterator(
+                             thrust::make_zip_iterator(
+                                 thrust::make_tuple(lower_bounds.end(), upper_bounds.end())),
+                             make_leaf()),
+                         leaves_on_this_level.begin(),
+                         child_node_kind.begin(),
+                         leaves.begin() + children_begin,
+                         is_a<LEAF>());
+    }
+
+This is the gnarliest looking call we've seen so far. The basic idea is that
+we're going to take the elements of `lower_bounds` and `upper_bounds` and
+conditionally scatter them to the `leaves` array when they correspond to a node
+which is a leaf. 
+
+Let's begin by deciphering the `make_transform_iterator` and
+`make_zip_iterator` calls. To fit into the `leaves` array which is of type
+`int2`, We need to turn the elements of `lower_bounds` and `upper_bounds` into
+`int2`. To do that, we begin by zipping together the two arrays, which
+basically results in an array of `tuple`s. To get an `int`, we need to
+transform the `tuple` using the `make_leaf` functor. If we hook that into
+`make_transform_iterator`, we'll have what looks like an array of `int2`, which
+is what will fit the `leaves` array.
+
+To find the location in the `leaves` array where each `int2` should go, we pass
+our `leaves_on_this_level` array. Remember, this array stores the "rank" of
+each leaf node. When these ranks are used as scatter indices, this ensures that
+the leaves are stored contiguously at the end of the `leaves` array.
+
+But we don't want to scatter all the bounds to the `leaves` array -- we only
+want to store the ones that correspond to `leaves`. That's where our condition
+comes in. To compute whether or not an element from our input should be
+scattered, we pass the `child_node_kind` array along with the `is_a<LEAF>()`
+functor. For each input element, `thrust::scatter_if` will transform the
+corresponding element of the `child_node_kind` array using this functor. If it
+evaluates to true, then it will scatter the input element. Otherwise,
+`thrust::scatter_if` will just ignore it.
+
+Finally, we pass the position in the `leaves` array where the new children
+begin: this is at `leaves.begin + children_begin`.
+
+Phew!
+
