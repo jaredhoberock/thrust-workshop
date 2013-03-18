@@ -543,3 +543,126 @@ We've parallelized so many of this kind of loop that it should be second nature 
                         classify_node(threshold, level == max_level));
     }
 
+# Ranking Nodes and Leaves
+
+Now that we've classified each of this level's children as either nodes or
+leaves, we need to know for each node which node that it is. In other words, we
+need to label the first node with a `0`, the second node with a `1`, the third
+with a `3`, and so on. We also need to do the same thing for leaves. "Ranking"
+each child in this way will tell us where we need to put it in our final data
+structure.
+
+We'll introduce two new arrays to store these ranks and also tally total the number of nodes and leaves on this level:
+
+    std::vector<int> nodes_on_this_level(child_node_kind.size());
+    std::vector<int> leaves_on_this_leveL(child_node_kind.size());
+
+    std::pair<int,int> num_nodes_and_leaves_on_this_level =
+      enumerate_nodes_and_leaves(child_node_kind, nodes_on_this_level, leaves_on_this_level);
+
+Let's look at the sequential code:
+
+    std::pair<int,int> enumerate_nodes_and_leaves(const std::vector<int> &child_node_kind,
+                                                  std::vector<int> &nodes_on_this_level,
+                                                  std::vector<int> &leaves_on_this_level)
+    {
+      for(int i = 0, prefix_sum = 0; i < child_node_kind.size(); ++i)
+      {
+        nodes_on_this_level[i] = prefix_sum;
+        if(child_node_kind[i] == NODE)
+        {
+          ++prefix_sum;
+        }
+      }
+    
+      for(int i = 0, prefix_sum = 0; i < child_node_kind.size(); ++i)
+      {
+        leaves_on_this_level[i] = prefix_sum;
+        if(child_node_kind[i] == LEAF)
+        {
+          ++prefix_sum;
+        }
+      }
+    
+      std::pair<int,int> num_nodes_and_leaves_on_this_level;
+    
+      num_nodes_and_leaves_on_this_level.first = nodes_on_this_level.back() + (child_node_kind.back() == NODE ? 1 : 0);
+      num_nodes_and_leaves_on_this_level.second = leaves_on_this_level.back() + (child_node_kind.back() == LEAF ? 1 : 0);
+    
+      return num_nodes_and_leaves_on_this_level;
+    }
+
+The sequential version of the code loops through the `child_node_kind` array
+twice. Each time it encounters a `NODE` it increments a counter called
+`prefix_sum`. In each iteration, the counter gets stored to the corresponding
+element of `nodes_on_this_level`. The same thing happens for the leaves. The
+result is that the `nodes_on_this_level` array contains an ascending sequence
+of integers, starting at zero. The locations where the value of the sequence
+increments are at locations in `child_node_kind` which correspond to a node.
+
+This means that the last element of the `nodes_on_this_level` array is one less
+than the total number of interior nodes. To find the total, we take this number
+and add one if the last element of `child_node_kind` corresponds to a `NODE`
+(and do the same computation for the leaves).
+
+This kind of loop seems really hard to parallelize because the value of our
+counter depends on elements of `child_node_kind` we encountered in the past.
+On the other hand, the reduction loop from the
+[`fun_with_points`](../fun_with_points) example seemed the same way at first.
+Maybe there's a way to compute several sums in parallel?
+
+It turns out that the operation that this `for` loop implements is called a
+"prefix sum" (hence the name of our counter) or a "scan". A scan is kind of
+like a reduction, but instead of producing just a single result, we associate a
+result with each input element which is the sum of elements encountered so far.
+Thrust calls this particular flavor an "exclusive scan" because each input is
+excluded from its corresponding sum. That is, the counter is updated *after*
+the corresponding sum is written to the output.
+
+Let's look at how to use `thrust::transform_exclusive_scan` to parallelize these prefix sums:
+
+    std::pair<int,int> enumerate_nodes_and_leaves(const thrust::device_vector<int> &child_node_kind,
+                                                  thrust::device_vector<int> &nodes_on_this_level,
+                                                  thrust::device_vector<int> &leaves_on_this_level)
+    {
+      thrust::transform_exclusive_scan(child_node_kind.begin(), 
+                                       child_node_kind.end(), 
+                                       nodes_on_this_level.begin(), 
+                                       is_a<NODE>(), 
+                                       0, 
+                                       thrust::plus<int>());
+      
+      thrust::transform_exclusive_scan(child_node_kind.begin(), 
+                                       child_node_kind.end(), 
+                                       leaves_on_this_level.begin(), 
+                                       is_a<LEAF>(), 
+                                       0, 
+                                       thrust::plus<int>());
+    
+      std::pair<int,int> num_nodes_and_leaves_on_this_level;
+    
+      num_nodes_and_leaves_on_this_level.first = nodes_on_this_level.back() + (child_node_kind.back() == NODE ? 1 : 0);
+      num_nodes_and_leaves_on_this_level.second = leaves_on_this_level.back() + (child_node_kind.back() == LEAF ? 1 : 0);
+    
+      return num_nodes_and_leaves_on_this_level;
+    }
+
+You can see that the two loops have collasped into high level algorithm calls, but the code which computes the total sums at the end is unchanged.
+Let's decipher what's going on inside one of these calls to `thrust::transform_exclusive_scan`:
+
+    thrust::transform_exclusive_scan(child_node_kind.begin(),
+                                     child_node_kind.end(),
+                                     nodes_on_this_level.begin(),
+                                     is_a<NODE>(),
+                                     0,
+                                     thrust::plus<int>());
+
+First, we pass the input range, this is just `child_node_kind`. We'll store the
+scan to `nodes_on_this_level`, which comes next. The next argument,
+`is_a<NODE>()`, is a functor. Whenever the scan encounters an element from
+`child_node_kind` which is a `NODE`, this functor will transform the input
+element into `true`.  Otherwise, it will return `false`. Next, we tell the
+scan that we want to start counting from `0`. Finally, we tell the scan
+how to sum two elements together: just do an integer `plus` operation. The
+second call to `transform_exclusive_scan` for leaves is interpreted
+similarly.
