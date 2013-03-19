@@ -74,6 +74,7 @@ void sort_points_by_tag(thrust::device_vector<int> &tags, thrust::device_vector<
 }
 
 
+// For a given child at a given level, return the lowest tag in the branch
 struct child_index_to_tag_mask
 {
   int level, max_level;
@@ -128,6 +129,7 @@ void find_child_bounds(const thrust::device_vector<int> &tags,
 }
 
 
+// Classify a node as empty, leaf or node
 struct classify_node
 {
   int threshold;
@@ -319,7 +321,7 @@ void build_tree(const thrust::device_vector<int> &tags,
   thrust::device_vector<int> active_nodes(1,0);
 
   // Build the tree one level at a time, starting at the root
-  for(int level = 1 ; !active_nodes.empty() && level <= max_level ; ++level)
+  for (int level = 1 ; !active_nodes.empty() && level <= max_level ; ++level)
   {
     std::cout << "\n\n\n*************************\n";
     std::cout << "*** BUILDING LEVEL " << std::setw(4) << level << " *\n";
