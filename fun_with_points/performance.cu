@@ -36,9 +36,7 @@ struct random_point
   __host__ __device__
   float2 operator()(unsigned int x)
   {
-    thrust::default_random_engine rng(hash(x));
-    thrust::random::uniform_real_distribution<float> dist;
-    return make_float2(dist(rng), dist(rng));
+    return make_float2(float(hash(x)) / UINT_MAX, float(hash(2 * x)) / UINT_MAX);
   }
 };
 
